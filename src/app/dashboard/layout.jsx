@@ -24,6 +24,7 @@ import {
   FileText,
   FolderOpen,
 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const navigationConfig = {
   client: [
@@ -82,7 +83,8 @@ export default function DashboardLayout({ children }) {
   const onLogout = async () => {
     setIsLoading(true);
     try {
-      // await handleLogout();
+      const supabase = createClient();
+      await supabase.auth.signOut();
       router.push("/login");
     } catch (error) {
       console.error("Logout failed:", error);

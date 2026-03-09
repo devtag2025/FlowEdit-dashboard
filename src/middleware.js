@@ -44,6 +44,27 @@ export async function middleware(request) {
     return NextResponse.redirect(url);
   }
 
+  // Role-based access: block users from accessing other roles' dashboards
+  if (user && request.nextUrl.pathname.startsWith("/dashboard/")) {
+    const urlRole = request.nextUrl.pathname.split("/")[2]; // "client" | "admin" | "contractor"
+
+    if (["client", "admin", "contractor"].includes(urlRole)) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      const userRole = profile?.role || "client";
+
+      if (urlRole !== userRole) {
+        const url = request.nextUrl.clone();
+        url.pathname = `/dashboard/${userRole}`;
+        return NextResponse.redirect(url);
+      }
+    }
+  }
+
   return supabaseResponse;
 }
 

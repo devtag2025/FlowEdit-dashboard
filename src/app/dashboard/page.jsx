@@ -11,9 +11,13 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // TODO: Read role from profiles table once it's set up
-  // For now, default to client
-  const role = user.user_metadata?.role || "client";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const role = profile?.role || "client";
 
   redirect(`/dashboard/${role}`);
 }

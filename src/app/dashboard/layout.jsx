@@ -54,11 +54,29 @@ export default function DashboardLayout({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(3);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
 
   const role = pathname.split("/")[2]; // "client" | "admin" | "contractor"
   const navigation = navigationConfig[role] || navigationConfig.client;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name, avatar_url")
+          .eq("id", user.id)
+          .single();
+        setUserProfile(profile);
+        console.log("profile",profile)
+      }
+    };
+    fetchProfile();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -131,7 +149,7 @@ export default function DashboardLayout({ children }) {
     ${
       active
         ? `
-          bg-linear-to-tr  from-purple-500/70 from-tertiary/90 to-secondary/50
+          bg-linear-to-tr from-purple-500/70 to-secondary/50
           text-white
           shadow-lg shadow-primary/25
         `
@@ -273,16 +291,22 @@ export default function DashboardLayout({ children }) {
               <Link href={`/dashboard/${role}/profile`}>
                 <div className="relative flex items-center gap-2 px-1 py-1 lg:px-3 lg:py-2 rounded-full lg:rounded-full bg-tertiary hover:border-purple-400/70 hover:shadow-[0_0_20px_-5px_rgba(168,85,247,0.7)] transition-all duration-300 active:scale-95">
                   <div className="relative w-8 h-8 lg:w-10 lg:h-10 rounded-full overflow-hidden bg-linear-to-br from-purple-600 to-purple-400 shrink-0">
-                    <Image
-                      src="https://images.pexels.com/photos/712513/pexels-photo-712513.jpeg"
-                      alt="Avatar"
-                      fill
-                      className="object-cover"
-                    />
+                    {userProfile?.avatar_url ? (
+                      <Image
+                        src={userProfile.avatar_url}
+                        alt="Avatar"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-white font-bold text-sm">
+                        {userProfile?.name?.charAt(0)?.toUpperCase() || "U"}
+                      </div>
+                    )}
                   </div>
 
                   <span className="hidden lg:block text-sm lg:text-base font-semibold text-accent">
-                    John Doe
+                    {userProfile?.name || "User"}
                   </span>
                 </div>
               </Link>

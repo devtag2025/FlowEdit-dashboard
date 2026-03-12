@@ -1,21 +1,14 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Play, ArrowLeft, MoveRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/Dashboard/StatusBadge";
 import ProjectDetails from "./ProjectDetails";
 import { Card, CardContent } from "../ui/card";
-import { projects as clientProjects } from "@/utils/dashboard-client";
-import { projects as adminProjects } from "@/utils/dashboard-admin";
-import { projects as contractorProjects } from "@/utils/dashboard-contractor";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-
-const projectsByRole = {
-  client: clientProjects,
-  admin: adminProjects,
-  contractor: contractorProjects,
-};
+import { fetchProjectById, approveProject, fetchUserProfile } from "@/lib/queries/projects";
+import Loader from "@/components/common/Loader";
 import ProjectComments from "./ProjectComments";
 import ProjectApprovePopup from "./ProjectApprovePopup";
 import {
@@ -25,15 +18,56 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
 function ProjectSection({ projectId }) {
   const pathname = usePathname();
-  const role = pathname.split("/")[2]; // "client" | "admin" | "contractor"
-  const projects = projectsByRole[role] || clientProjects;
+  const role = pathname.split("/")[2];
+
+  const [project, setProject] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showDetails, setShowDetails] = useState(false);
   const [isRevising, setIsRevising] = useState(false);
   const [isApproveOpen, setIsApproveOpen] = useState(false);
-  const [isApproved, setIsApproved] = useState(false);
-  const project = projects.find((p) => String(p.id) === String(projectId));
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
+        const [projectData, userProfile] = await Promise.all([
+          fetchProjectById(projectId),
+          fetchUserProfile(),
+        ]);
+        setProject(projectData);
+        setProfile(userProfile);
+      } catch (err) {
+        console.error("Failed to load project:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadData();
+  }, [projectId]);
+
+  const handleApprovalComplete = async () => {
+    if (!profile) return;
+    try {
+      const updated = await approveProject(projectId, profile.id);
+      setProject((prev) => ({ ...prev, ...updated }));
+    } catch (err) {
+      console.error("Failed to approve project:", err);
+    }
+  };
 
   const handleRevise = () => {
     setIsRevising(true);
@@ -42,11 +76,26 @@ function ProjectSection({ projectId }) {
     }, 2000);
   };
 
-  if (!project) {
+  if (loading) {
     return (
-      <div className="p-10 text-center text-accent/60">Project not found</div>
+      <div className="flex items-center justify-center p-20">
+        <Loader />
+      </div>
     );
   }
+
+  if (error || !project) {
+    return (
+      <div className="p-10 text-center text-accent/60">
+        {error || "Project not found"}
+      </div>
+    );
+  }
+
+  const isApproved = project.status === "completed" || !!project.approved_at;
+  const latestVersion = project.versions?.length > 0
+    ? project.versions[0]
+    : null;
 
   return (
     <Card className="bg-white rounded-3xl">
@@ -59,18 +108,18 @@ function ProjectSection({ projectId }) {
           </Link>
 
           <h2 className="text-xl md:text-4xl font-semibold my-2">
-            {project.name}
+            {project.title}
           </h2>
 
           <div className="flex items-center gap-3">
-            <span className="bg-slate-200 text-xs md:text-sm border rounded-full px-4 py-1 font-bold">
-              {project.platform}
-            </span>
-            <Badge className="bg-slate-200 text-primary text-xs md:text-sm border px-4 py-1">
-              {project.status}
-            </Badge>
+            {project.platform && (
+              <span className="bg-slate-200 text-xs md:text-sm border rounded-full px-4 py-1 font-bold capitalize">
+                {project.platform}
+              </span>
+            )}
+            <StatusBadge status={project.status} />
             <span className="text-xs md:text-sm">
-              Updated on {project.lastUpdated}
+              Updated on {formatDate(project.updated_at)}
             </span>
           </div>
         </div>
@@ -84,14 +133,16 @@ function ProjectSection({ projectId }) {
                   <Play className="w-4 h-4 md:w-8 md:h-8 ml-1" />
                 </div>
                 <p className="text-white/80 text-xs md:text-sm">
-                  Video preview coming soon
+                  {latestVersion ? `Version ${latestVersion.version_number}` : "No video uploaded yet"}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-2">
               <span className="text-sm md:text-lg font-semibold">
-                Video Project Version: 5
+                {latestVersion
+                  ? `Video Project Version: ${latestVersion.version_number}`
+                  : "No versions yet"}
               </span>
               <TooltipProvider delayDuration={200}>
                 <div className="flex gap-2">
@@ -103,9 +154,16 @@ function ProjectSection({ projectId }) {
                       <p className="text-[10px] text-xs md:text-sm text-slate-600">
                         Final files are available in your Cloud Folder
                       </p>
-                      <button className="text-primary font-bold text-xs md:text-sm hover:underline cursor-pointer">
-                        Open Cloud Folder →
-                      </button>
+                      {project.asset_links?.[0] && (
+                        <a
+                          href={project.asset_links[0]}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary font-bold text-xs md:text-sm hover:underline cursor-pointer"
+                        >
+                          Open Cloud Folder →
+                        </a>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -163,11 +221,11 @@ function ProjectSection({ projectId }) {
             <ProjectApprovePopup
               isOpen={isApproveOpen}
               onClose={() => setIsApproveOpen(false)}
-              onApprovalComplete={() => setIsApproved(true)}
+              onApprovalComplete={handleApprovalComplete}
             />
 
             <div className="text-sm md:text-base bg-tertiary/60 shadow-lg rounded-xl p-4 border border-accent/20">
-              <p className="leading-relaxed">{project.description}</p>
+              <p className="leading-relaxed">{project.description || "No description provided."}</p>
 
               <div
                 onClick={() => setShowDetails((prev) => !prev)}
@@ -182,12 +240,12 @@ function ProjectSection({ projectId }) {
 
             {showDetails && (
               <div className="mt-6">
-                <ProjectDetails />
+                <ProjectDetails project={project} />
               </div>
             )}
           </div>
 
-          <ProjectComments />
+          <ProjectComments projectId={projectId} />
         </div>
       </CardContent>
     </Card>

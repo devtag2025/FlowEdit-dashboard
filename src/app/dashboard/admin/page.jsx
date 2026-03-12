@@ -1,15 +1,15 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Search,
-  Edit,
-  Download,
-  MessageCircle,
-  Users,
   Eye,
+  Users,
   MoreVertical,
+  Activity,
+  Clock,
+  Briefcase,
+  UserCheck,
 } from "lucide-react";
-import { stats, filters, projects } from "@/utils/dashboard-admin";
 import StatCard from "@/components/Dashboard/StatCard";
 import { Input } from "@/components/ui/input";
 import { StatusBadge, ActionButton } from "@/components/Dashboard/StatusBadge";
@@ -23,26 +23,179 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/common/Loader";
+import {
+  fetchAllProjects,
+  fetchUserProfile,
+  fetchContractors,
+  assignContractor,
+  markPosted,
+} from "@/lib/queries/projects";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AssignContractorModal from "@/components/Dashboard/AssignContractorModal";
+import MarkPostedModal from "@/components/Dashboard/MarkPostedModal";
 
-const Dashboard = () => {
+const filters = [
+  "All",
+  "Submitted",
+  "In Progress",
+  "Review",
+  "Completed",
+  "Ready to Post",
+  "Posted",
+];
+
+const filterToStatus = {
+  Submitted: "submitted",
+  "In Progress": "in_progress",
+  Review: "review",
+  Completed: "completed",
+  "Ready to Post": "ready_to_post",
+  Posted: "posted",
+};
+
+function computeStats(projects) {
+  const total = projects.length;
+  const active = projects.filter(
+    (p) => p.status === "submitted" || p.status === "in_progress" || p.status === "review"
+  ).length;
+  const uniqueClients = new Set(projects.map((p) => p.client_id)).size;
+  const uniqueContractors = new Set(
+    projects.filter((p) => p.contractor_id).map((p) => p.contractor_id)
+  ).size;
+
+  return [
+    {
+      icon: Activity,
+      title: "Total Projects",
+      percentage: `${total}`,
+      subtitle: "all time",
+    },
+    {
+      icon: Clock,
+      title: "Active Projects",
+      percentage: total > 0 ? `${Math.round((active / total) * 100)}%` : "0%",
+      subtitle: `${active} of ${total} projects`,
+    },
+    {
+      icon: Users,
+      title: "Clients",
+      percentage: `${uniqueClients}`,
+      subtitle: "unique clients",
+    },
+    {
+      icon: Briefcase,
+      title: "Contractors",
+      percentage: `${uniqueContractors}`,
+      subtitle: "assigned contractors",
+    },
+  ];
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
+
+const AdminDashboard = () => {
   const router = useRouter();
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [contractors, setContractors] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const filteredProjects = projects.filter((project) => {
-    const matchesFilter =
-      activeFilter === "All" || project.status === activeFilter;
-    const matchesSearch =
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.platform.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  // Assign contractor modal
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+
+  // Mark posted modal
+  const [postedModalOpen, setPostedModalOpen] = useState(false);
+  const [postedProject, setPostedProject] = useState(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [userProfile, allProjects, allContractors] = await Promise.all([
+        fetchUserProfile(),
+        fetchAllProjects(),
+        fetchContractors(),
+      ]);
+      setProfile(userProfile);
+      console.log("Fetched projects:", allProjects);
+      setProjects(allProjects || []);
+      setContractors(allContractors || []);
+    } catch (err) {
+      console.error("Failed to load admin data:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleProjectView = (project) => {
     setLoading(true);
     router.push(`/dashboard/admin/projects/${project.id}`);
   };
+
+  const handleAssignClick = (project) => {
+    setSelectedProject(project);
+    setAssignModalOpen(true);
+  };
+
+  const handleAssignContractor = async (projectId, contractorId) => {
+    if (!profile) return;
+    try {
+      await assignContractor(projectId, contractorId, profile.id);
+      setAssignModalOpen(false);
+      loadData();
+    } catch (err) {
+      console.error("Failed to assign contractor:", err);
+    }
+  };
+
+  const handleMarkPostedClick = (project) => {
+    setPostedProject(project);
+    setPostedModalOpen(true);
+  };
+
+  const handleMarkPosted = async (projectId, publishedUrl) => {
+    try {
+      await markPosted(projectId, publishedUrl);
+      setPostedModalOpen(false);
+      loadData();
+    } catch (err) {
+      console.error("Failed to mark as posted:", err);
+    }
+  };
+
+  const filteredProjects = projects.filter((project) => {
+    const matchesFilter =
+      activeFilter === "All" || project.status === filterToStatus[activeFilter];
+    const matchesSearch =
+      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.platform || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.client?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const stats = computeStats(projects);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -58,6 +211,9 @@ const Dashboard = () => {
               <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1 sm:mb-2">
                 Admin Dashboard
               </h1>
+              <p className="text-sm sm:text-base text-accent/70 font-onest font-bold">
+                Manage all projects, assign editors, and track progress
+              </p>
             </div>
           </div>
 
@@ -70,60 +226,24 @@ const Dashboard = () => {
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <h2 className="text-2xl font-semibold font-onest text-accent">
-                My Video Projects
+                All Projects
               </h2>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="relative w-full overflow-hidden ">
+              <div className="relative w-full overflow-hidden">
                 <div className="w-full">
                   <div className="lg:hidden w-full">
-                    <Select
-                      value={activeFilter}
-                      onValueChange={setActiveFilter}
-                    >
-                      <SelectTrigger
-                        className="
-        h-11 w-full
-        rounded-xl
-        border border-accent/20
-        bg-tertiary!
-        text-sm font-semibold text-accent
-
-        transition-all
-        hover:border-primary/50
-        hover:bg-accent/5
-
-        focus:ring-2
-        focus:ring-primary/40
-        focus:border-primary
-      "
-                      >
+                    <Select value={activeFilter} onValueChange={setActiveFilter}>
+                      <SelectTrigger className="h-11 w-full rounded-xl border border-accent/20 bg-white! text-sm font-semibold text-accent transition-all hover:border-primary/50 hover:bg-accent/5 focus:ring-2 focus:ring-primary/40 focus:border-primary">
                         <SelectValue placeholder="Select filter" />
                       </SelectTrigger>
-
-                      <SelectContent
-                        className="
-        rounded-xl
-        border border-accent/20
-        bg-tertiary
-        shadow-lg
-      "
-                      >
+                      <SelectContent className="rounded-xl border border-accent/20 bg-white shadow-lg">
                         {filters.map((filter) => (
                           <SelectItem
                             key={filter}
                             value={filter}
-                            className="
-            cursor-pointer
-            text-sm font-medium text-accent
-
-            focus:bg-primary/10
-            focus:text-accent
-
-            data-[state=checked]:bg-primary/15
-            data-[state=checked]:font-semibold
-          "
+                            className="cursor-pointer text-sm font-medium text-accent focus:bg-primary/10 focus:text-accent data-[state=checked]:bg-primary/15 data-[state=checked]:font-semibold"
                           >
                             {filter}
                           </SelectItem>
@@ -146,18 +266,19 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="relative w-full lg:w-80 bg-tertiary rounded-2xl">
+              <div className="relative w-full lg:w-80 bg-white rounded-2xl">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                 <Input
                   type="text"
                   placeholder="Search projects..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-tertiary border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+                  className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
                 />
               </div>
             </div>
 
+            {/* Desktop Table */}
             <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
               <table className="w-full">
                 <thead>
@@ -166,13 +287,16 @@ const Dashboard = () => {
                       Project Name
                     </th>
                     <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                      Client
+                    </th>
+                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
                       Status
                     </th>
                     <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
                       Last Updated
                     </th>
                     <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Assigned Contractors
+                      Assigned Editor
                     </th>
                     <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">
                       Actions
@@ -187,10 +311,26 @@ const Dashboard = () => {
                       className="border-b border-accent/10 hover:bg-accent/5 transition-colors"
                     >
                       <td className="p-4">
-                        <div className="space-y-2">
-                          <p className="font-semibold text-accent">
-                            {project.name}
-                          </p>
+                        <div>
+                          <p className="font-semibold text-accent">{project.title}</p>
+                          <p className="text-xs text-accent/50 capitalize">{project.platform || "—"}</p>
+                        </div>
+                      </td>
+
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <Avatar className="w-7 h-7">
+                            {project.client?.avatar_url ? (
+                              <AvatarImage src={project.client.avatar_url} />
+                            ) : (
+                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                                {project.client?.name?.[0] || "?"}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <span className="text-sm text-accent/80">
+                            {project.client?.name || "—"}
+                          </span>
                         </div>
                       </td>
 
@@ -199,31 +339,51 @@ const Dashboard = () => {
                       </td>
 
                       <td className="p-4 text-accent/70">
-                        {project.lastUpdated}
+                        {formatDate(project.updated_at)}
                       </td>
 
                       <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={project.contractor.avatar}
-                            alt={project.contractor.name}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                          <span className="text-accent/80 text-sm">
-                            {project.contractor.name}
-                          </span>
-                        </div>
+                        {project.contractor ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="w-7 h-7">
+                              {project.contractor.avatar_url ? (
+                                <AvatarImage src={project.contractor.avatar_url} />
+                              ) : (
+                                <AvatarFallback className="bg-green-100 text-green-700 text-xs font-bold">
+                                  {project.contractor.name?.[0] || "?"}
+                                </AvatarFallback>
+                              )}
+                            </Avatar>
+                            <span className="text-sm text-accent/80">
+                              {project.contractor.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-accent/40 italic">Unassigned</span>
+                        )}
                       </td>
 
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
-                          <ActionButton icon={Users} label="Assign" />
+                          {!project.contractor_id && (
+                            <ActionButton
+                              icon={UserCheck}
+                              label="Assign"
+                              onClick={() => handleAssignClick(project)}
+                            />
+                          )}
                           <ActionButton
                             icon={Eye}
                             label="View"
                             onClick={() => handleProjectView(project)}
                           />
-                          <ActionButton icon={MoreVertical} label="More" />
+                          {project.status === "ready_to_post" && (
+                            <ActionButton
+                              icon={MoreVertical}
+                              label="Mark Posted"
+                              onClick={() => handleMarkPostedClick(project)}
+                            />
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -232,6 +392,7 @@ const Dashboard = () => {
               </table>
             </div>
 
+            {/* Mobile Cards */}
             <div className="lg:hidden space-y-4">
               {filteredProjects.map((project) => (
                 <div
@@ -241,56 +402,93 @@ const Dashboard = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="font-semibold text-accent mb-1">
-                        {project.name}
+                        {project.title}
                       </h3>
-                      <p className="text-sm text-accent/70">
-                        {project.platform}
+                      <p className="text-sm text-accent/70 capitalize">
+                        {project.platform || "—"}
                       </p>
                     </div>
                     <StatusBadge status={project.status} />
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="w-full h-1.5 bg-accent/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-500"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-accent/60">
-                      Last updated: {project.lastUpdated}
-                    </p>
+                  <div className="flex items-center justify-between text-xs text-accent/60">
+                    <span>Client: {project.client?.name || "—"}</span>
+                    <span>{formatDate(project.updated_at)}</span>
                   </div>
 
+                  {project.contractor ? (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="w-6 h-6">
+                        {project.contractor.avatar_url ? (
+                          <AvatarImage src={project.contractor.avatar_url} />
+                        ) : (
+                          <AvatarFallback className="bg-green-100 text-green-700 text-[10px] font-bold">
+                            {project.contractor.name?.[0] || "?"}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                      <span className="text-xs text-accent/70">{project.contractor.name}</span>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-accent/40 italic">Unassigned</p>
+                  )}
+
                   <div className="flex items-center gap-2 pt-2">
+                    {!project.contractor_id && (
+                      <ActionButton
+                        icon={UserCheck}
+                        label="Assign"
+                        onClick={() => handleAssignClick(project)}
+                      />
+                    )}
                     <ActionButton
-                      icon={Edit}
-                      label="Edit"
-                      onClick={() => handleOpenProject(project)}
+                      icon={Eye}
+                      label="View"
+                      onClick={() => handleProjectView(project)}
                     />
-                    <ActionButton icon={Download} label="Download" />
-                    <ActionButton
-                      icon={MessageCircle}
-                      label="Comments"
-                      onClick={() => handleOpenProject(project)}
-                    />
+                    {project.status === "ready_to_post" && (
+                      <ActionButton
+                        icon={MoreVertical}
+                        label="Mark Posted"
+                        onClick={() => handleMarkPostedClick(project)}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
             </div>
 
-            {filteredProjects.length === 0 && (
+            {filteredProjects.length === 0 && !isLoading && (
               <div className="bg-tertiary rounded-2xl p-12 text-center">
                 <p className="text-accent/60">
-                  No projects found matching your criteria.
+                  {projects.length === 0
+                    ? "No projects yet."
+                    : "No projects found matching your criteria."}
                 </p>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Assign Contractor Modal */}
+      <AssignContractorModal
+        isOpen={assignModalOpen}
+        setIsOpen={setAssignModalOpen}
+        project={selectedProject}
+        contractors={contractors}
+        onAssign={handleAssignContractor}
+      />
+
+      {/* Mark Posted Modal */}
+      <MarkPostedModal
+        isOpen={postedModalOpen}
+        setIsOpen={setPostedModalOpen}
+        project={postedProject}
+        onMarkPosted={handleMarkPosted}
+      />
     </div>
   );
 };
 
-export default Dashboard;
+export default AdminDashboard;

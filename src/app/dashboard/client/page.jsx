@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Plus, Search, Edit, Download, MessageCircle } from "lucide-react";
+import { Plus, Search, Eye } from "lucide-react";
 import { Activity, Clock, CheckCircle } from "lucide-react";
 import StatCard from "@/components/Dashboard/StatCard";
 import { Input } from "@/components/ui/input";
@@ -302,13 +302,8 @@ const Dashboard = () => {
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
                           <ActionButton
-                            icon={Edit}
+                            icon={Eye}
                             label="View"
-                            onClick={() => handleOpenProject(project)}
-                          />
-                          <ActionButton
-                            icon={MessageCircle}
-                            label="Comments"
                             onClick={() => handleOpenProject(project)}
                           />
                         </div>
@@ -344,13 +339,8 @@ const Dashboard = () => {
 
                   <div className="flex items-center gap-2 pt-2">
                     <ActionButton
-                      icon={Edit}
+                      icon={Eye}
                       label="View"
-                      onClick={() => handleOpenProject(project)}
-                    />
-                    <ActionButton
-                      icon={MessageCircle}
-                      label="Comments"
                       onClick={() => handleOpenProject(project)}
                     />
                   </div>

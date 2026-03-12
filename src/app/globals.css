@@ -49,6 +49,9 @@
 }
 
 @theme inline {
+  --font-inter: var(--font-inter);
+  --font-onest: var(--font-onest);
+
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
   --color-tertiary: var(--tertiary);

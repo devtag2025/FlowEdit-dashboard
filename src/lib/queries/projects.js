@@ -268,6 +268,38 @@ export async function createVersion(projectId, { video_url, notes, uploaded_by }
   return data;
 }
 
+// ─── ADMIN: Fetch all contractors ───
+export async function fetchContractors() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, email, avatar_url")
+    .eq("role", "contractor")
+    .order("name");
+
+  if (error) throw error;
+  return data;
+}
+
+// ─── ADMIN: Fetch admin stats ───
+export async function fetchAdminStats() {
+  const { data: allProjects, error } = await supabase
+    .from("projects")
+    .select("status, client_id, contractor_id");
+
+  if (error) throw error;
+
+  const total = allProjects?.length || 0;
+  const active = allProjects?.filter(
+    (p) => p.status === "submitted" || p.status === "in_progress" || p.status === "review"
+  ).length || 0;
+  const uniqueClients = new Set(allProjects?.map((p) => p.client_id)).size;
+  const uniqueContractors = new Set(
+    allProjects?.filter((p) => p.contractor_id).map((p) => p.contractor_id)
+  ).size;
+
+  return { total, active, uniqueClients, uniqueContractors };
+}
+
 // ─── PROFILE: Fetch user profile ───
 export async function fetchUserProfile() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();

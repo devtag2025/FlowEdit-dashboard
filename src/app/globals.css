@@ -2,6 +2,11 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Hide Next.js dev error overlay */
+nextjs-portal {
+  display: none !important;
+}
+
 
 :root {
   --primary: #6a4dff;

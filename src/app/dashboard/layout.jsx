@@ -239,7 +239,7 @@ export default function DashboardLayout({ children }) {
         />
       )}
 
-      <div className="lg:ml-72 pb-20 lg:pb-0">
+      <div className="lg:ml-72">
         <header
           className={`sticky top-0 z-20 bg-secondary transition-all duration-300 ${
             isScrolled

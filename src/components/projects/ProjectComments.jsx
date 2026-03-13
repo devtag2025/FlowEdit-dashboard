@@ -136,34 +136,49 @@ export default function ProjectComments({ projectId }) {
             No comments yet. Be the first to comment.
           </p>
         ) : (
-          sortedComments.map((comment) => (
-            <div key={comment.id} className="flex gap-3">
-              <Avatar className="md:w-10 md:h-10 shrink-0">
-                {comment.author?.avatar_url ? (
-                  <AvatarImage src={comment.author.avatar_url} />
-                ) : (
-                  <AvatarFallback className="bg-primary text-white font-bold">
-                    {comment.author?.name?.[0] || "?"}
-                  </AvatarFallback>
-                )}
-              </Avatar>
+          sortedComments.map((comment) => {
+            const isYou = profile && comment.author?.id === profile.id;
+            const roleBadge = {
+              client: { label: "Client", className: "bg-blue-100 text-blue-700" },
+              contractor: { label: "Editor", className: "bg-purple-100 text-purple-700" },
+              admin: { label: "Admin", className: "bg-amber-100 text-amber-700" },
+            };
+            const badge = roleBadge[comment.author?.role];
 
-              <div className="flex-1">
-                <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-1">
-                  <span className="font-semibold text-sm md:text-base">
-                    {comment.author?.name || "Unknown"}
-                  </span>
-                  <span className="text-xs md:text-sm text-gray-500">
-                    {timeAgo(comment.created_at)}
-                  </span>
+            return (
+              <div key={comment.id} className="flex gap-3">
+                <Avatar className="md:w-10 md:h-10 shrink-0">
+                  {comment.author?.avatar_url ? (
+                    <AvatarImage src={comment.author.avatar_url} />
+                  ) : (
+                    <AvatarFallback className="bg-primary text-white font-bold">
+                      {comment.author?.name?.[0] || "?"}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+
+                <div className="flex-1">
+                  <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-1">
+                    <span className="font-semibold text-sm md:text-base">
+                      {isYou ? "You" : comment.author?.name || "Unknown"}
+                    </span>
+                    {badge && (
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    )}
+                    <span className="text-xs md:text-sm text-gray-500">
+                      {timeAgo(comment.created_at)}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-700 text-sm md:text-base leading-relaxed">
+                    {comment.content}
+                  </p>
                 </div>
-
-                <p className="text-gray-700 text-sm md:text-base leading-relaxed">
-                  {comment.content}
-                </p>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

@@ -200,7 +200,7 @@ export async function fetchComments(projectId) {
     .from("project_comments")
     .select(`
       id, content, created_at,
-      author:profiles!author_id(id, name, avatar_url)
+      author:profiles!author_id(id, name, avatar_url, role)
     `)
     .eq("project_id", projectId)
     .order("created_at", { ascending: false });
@@ -215,8 +215,21 @@ export async function addComment(projectId, authorId, content) {
     .insert({ project_id: projectId, author_id: authorId, content })
     .select(`
       id, content, created_at,
-      author:profiles!author_id(id, name, avatar_url)
+      author:profiles!author_id(id, name, avatar_url, role)
     `)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+// ─── VERSION STATUS ───
+export async function updateVersionStatus(versionId, status) {
+  const { data, error } = await supabase
+    .from("project_versions")
+    .update({ status })
+    .eq("id", versionId)
+    .select()
     .single();
 
   if (error) throw error;

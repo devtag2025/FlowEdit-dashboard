@@ -153,7 +153,7 @@ const Dashboard = () => {
           <Loader />
         </div>
       )}
-      <div className="min-h-screen bg-secondary p-4 md:p-8">
+      <div className="bg-secondary p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/select";
 import { FormSection, FormField } from "./FormSection";
 import { createProject } from "@/lib/queries/projects";
+import { hasBranding } from "@/lib/queries/branding";
+import Link from "next/link";
 
 export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, onProjectCreated }) {
   const {
@@ -46,8 +48,15 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, on
   });
 
   const [applyBranding, setApplyBranding] = useState(false);
+  const [brandingExists, setBrandingExists] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+
+  useEffect(() => {
+    if (clientId) {
+      hasBranding(clientId).then(setBrandingExists).catch(() => setBrandingExists(false));
+    }
+  }, [clientId]);
 
   const onSubmit = async (data) => {
     if (!clientId) return;
@@ -220,21 +229,31 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, on
             </FormField>
 
             <div
-              className="flex items-start gap-3 bg-accent/5 rounded-xl p-5 cursor-pointer"
-              onClick={() => setApplyBranding(!applyBranding)}
+              className={`flex items-start gap-3 bg-accent/5 rounded-xl p-5 ${brandingExists ? "cursor-pointer" : "opacity-60"}`}
+              onClick={() => brandingExists && setApplyBranding(!applyBranding)}
             >
               <Checkbox
                 checked={applyBranding}
-                onCheckedChange={setApplyBranding}
+                onCheckedChange={(checked) => brandingExists && setApplyBranding(checked)}
+                disabled={!brandingExists}
                 className="mt-0.5 border-accent/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
               />
               <div>
                 <p className="text-sm font-semibold text-accent">
                   Apply my branding template to this project
                 </p>
-                <p className="text-xs text-accent/50 mt-0.5">
-                  Used saved colors, fonts, logos, and editing style
-                </p>
+                {brandingExists ? (
+                  <p className="text-xs text-accent/50 mt-0.5">
+                    Use saved colors, fonts, logos, and editing style
+                  </p>
+                ) : (
+                  <p className="text-xs text-accent/50 mt-0.5">
+                    No branding saved yet.{" "}
+                    <Link href="/dashboard/client/branding" className="text-primary font-semibold hover:underline">
+                      Set up branding →
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </FormSection>

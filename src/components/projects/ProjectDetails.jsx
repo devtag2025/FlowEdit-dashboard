@@ -1,4 +1,7 @@
-import { FolderOpen, Check, X } from "lucide-react";
+"use client";
+import { useState, useEffect } from "react";
+import { FolderOpen, Check, X, ExternalLink } from "lucide-react";
+import { fetchClientBranding } from "@/lib/queries/branding";
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -7,6 +10,153 @@ function formatDate(dateStr) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function BrandKitSection({ clientId }) {
+  const [branding, setBranding] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!clientId) return;
+    fetchClientBranding(clientId)
+      .then(setBranding)
+      .catch(() => setBranding(null))
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  if (loading) {
+    return (
+      <div className="mb-6 p-4 bg-primary/5 rounded-lg">
+        <p className="text-sm text-accent/50">Loading brand kit...</p>
+      </div>
+    );
+  }
+
+  if (!branding) {
+    return (
+      <div className="mb-6 p-4 bg-amber-50 rounded-lg">
+        <p className="text-sm text-amber-700">
+          Branding is enabled but no brand kit has been saved yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 p-5 bg-primary/5 rounded-xl border border-primary/10 space-y-5">
+      <h4 className="text-xs font-bold text-primary uppercase tracking-widest">
+        Client Brand Kit
+      </h4>
+
+      {/* Logos */}
+      {(branding.logos?.primary?.length > 0 || branding.logos?.secondary?.length > 0) && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Logos</p>
+          <div className="flex gap-3 flex-wrap">
+            {[...(branding.logos.primary || []), ...(branding.logos.secondary || [])].map((url) => (
+              <div key={url} className="bg-white rounded-lg p-2 border border-slate-200">
+                <img src={url} alt="Logo" className="h-12 object-contain" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Colors */}
+      {branding.colors?.length > 0 && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Brand Colors</p>
+          <div className="flex gap-2 flex-wrap">
+            {branding.colors.map((color) => (
+              <div key={color} className="flex items-center gap-1.5">
+                <div
+                  className="w-6 h-6 rounded-md border border-slate-200"
+                  style={{ backgroundColor: color }}
+                />
+                <span className="text-xs font-mono text-accent/60 uppercase">{color}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fonts */}
+      {(branding.heading_font || branding.body_font) && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Fonts</p>
+          <div className="grid grid-cols-2 gap-3">
+            {branding.heading_font && (
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <p className="text-[10px] text-accent/40 uppercase mb-1">Heading</p>
+                <p className="text-sm font-semibold text-accent" style={{ fontFamily: branding.heading_font }}>
+                  {branding.heading_font}
+                </p>
+              </div>
+            )}
+            {branding.body_font && (
+              <div className="bg-white rounded-lg p-3 border border-slate-200">
+                <p className="text-[10px] text-accent/40 uppercase mb-1">Body</p>
+                <p className="text-sm text-accent" style={{ fontFamily: branding.body_font }}>
+                  {branding.body_font}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Brand Voice */}
+      {branding.brand_voice && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Brand Voice</p>
+          <p className="text-sm text-gray-700 leading-relaxed">{branding.brand_voice}</p>
+        </div>
+      )}
+
+      {/* Graphic Assets */}
+      {branding.graphic_assets?.length > 0 && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Graphic Assets</p>
+          <div className="flex gap-2 flex-wrap">
+            {branding.graphic_assets.map((url) => (
+              <div key={url} className="w-16 h-16 rounded-lg border border-slate-200 overflow-hidden bg-white">
+                <img src={url} alt="Asset" className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Guidelines */}
+      {(branding.guidelines_url || branding.guidelines_pdf_url) && (
+        <div>
+          <p className="text-[10px] text-accent/50 uppercase font-semibold mb-2">Brand Guidelines</p>
+          <div className="flex gap-3 flex-wrap">
+            {branding.guidelines_url && (
+              <a
+                href={branding.guidelines_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+              >
+                Brand Website <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+            {branding.guidelines_pdf_url && (
+              <a
+                href={branding.guidelines_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary font-semibold hover:underline flex items-center gap-1"
+              >
+                Brand Guide PDF <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProjectDetails({ project }) {
@@ -50,6 +200,11 @@ export default function ProjectDetails({ project }) {
                 : "Branding template is not applied to this project."}
             </p>
           </div>
+
+          {/* Brand Kit — shown when apply_branding is true */}
+          {project.apply_branding && (
+            <BrandKitSection clientId={project.client_id} />
+          )}
 
           {cloudLink && (
             <div className="mb-6">

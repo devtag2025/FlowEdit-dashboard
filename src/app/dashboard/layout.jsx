@@ -193,32 +193,22 @@ export default function DashboardLayout({ children }) {
             <button
               disabled={isLoading}
               onClick={onLogout}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl
-                hover:bg-white/5 border border-transparent hover:border-purple-500/30
-                transition-all duration-300 group text-left active:bg-white/10
-                ${
-                  isLoading
-                    ? "opacity-70 cursor-not-allowed"
-                    : "hover:scale-[1.02]"
-                }`}
+              className={`relative flex items-center gap-3 px-5 py-2 rounded-xl transition-all duration-300 group w-full text-left
+                text-accent hover:bg-white/30 hover:shadow-md hover:shadow-purple-500/10 active:bg-white/10
+                ${isLoading ? "opacity-70 cursor-not-allowed" : ""}`}
               aria-busy={isLoading}
               aria-label={isLoading ? "Logging out…" : "Logout"}
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin text-purple-400" />
-                  <span className="font-medium text-gray-400">
-                    Logging out…
-                  </span>
-                </>
-              ) : (
-                <>
-                  <LogOut className="w-5 h-5 text-gray-400 group-hover:text-purple-400 transition-colors" />
-                  <span className="font-medium text-gray-400 group-hover:text-white transition-colors">
-                    Logout
-                  </span>
-                </>
-              )}
+              <div className="flex h-7 w-7 items-center justify-center rounded-full transition-colors bg-transparent">
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-white/70" />
+                ) : (
+                  <LogOut className="w-5 h-5 text-white/70 group-hover:text-tertiary/80 transition-colors" />
+                )}
+              </div>
+              <span className="font-medium text-white group-hover:text-tertiary/80">
+                {isLoading ? "Logging out…" : "Logout"}
+              </span>
             </button>
           </nav>
 
@@ -249,7 +239,7 @@ export default function DashboardLayout({ children }) {
         />
       )}
 
-      <div className="lg:ml-72 pb-20 lg:pb-0">
+      <div className="lg:ml-72">
         <header
           className={`sticky top-0 z-20 bg-secondary transition-all duration-300 ${
             isScrolled

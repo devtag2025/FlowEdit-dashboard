@@ -1,76 +1,77 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, SendHorizontal } from "lucide-react";
-
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { fetchComments, addComment, fetchUserProfile } from "@/lib/queries/projects";
 
-const initialMessages = [
-  {
-    id: 1,
-    user: "Sarah Mitchell",
-    time: "2 hours ago",
-    message: `Love the transitions in the latest version! The color grading really pops now. Just one note: can we adjust the timing on slide 3?`,
-    avatar: null,
-  },
-  {
-    id: 2,
-    user: "James Chen",
-    time: "4 hours ago",
-    message:
-      "Working on the timing adjustment for slide 3. Will also tweak the audio fade between clips 7-8. Should have the update ready in an hour.",
-    avatar: null,
-    isEditor: true,
-  },
-  {
-    id: 3,
-    user: "James Chen",
-    time: "5 hours ago",
-    message:
-      "Updated the music track per your feedback. Also increased the text size on the CTA screen for better readability.",
-    avatar: null,
-  },
-];
+function timeAgo(dateStr) {
+  const now = new Date();
+  const date = new Date(dateStr);
+  const seconds = Math.floor((now - date) / 1000);
 
-export default function ProjectComments() {
-  const [messages, setMessages] = useState(initialMessages);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export default function ProjectComments({ projectId }) {
+  const [comments, setComments] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
   const [sortBy, setSortBy] = useState("newest");
   const [openSort, setOpenSort] = useState(false);
 
-  const sortedMessages = [...messages].sort((a, b) => {
-    if (sortBy === "newest") return a.id - b.id;
-    if (sortBy === "oldest") return b.id - a.id;
+  useEffect(() => {
+    async function load() {
+      const [commentsData, userProfile] = await Promise.all([
+        fetchComments(projectId),
+        fetchUserProfile(),
+      ]);
+      setComments(commentsData || []);
+      setProfile(userProfile);
+    }
+    load();
+  }, [projectId]);
+
+  const sortedComments = [...comments].sort((a, b) => {
+    if (sortBy === "newest") return new Date(b.created_at) - new Date(a.created_at);
+    if (sortBy === "oldest") return new Date(a.created_at) - new Date(b.created_at);
     return 0;
   });
 
   const options = [
     { key: "newest", label: "Newest first" },
     { key: "oldest", label: "Oldest first" },
-    { key: "relevant", label: "Most relevant" },
   ];
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return;
-    setMessages((prev) => [
-      {
-        id: Date.now(),
-        user: "You",
-        time: "Just now",
-        message,
-        avatar: null,
-      },
-      ...prev,
-    ]);
-
-    setMessage("");
+  const handleSendMessage = async () => {
+    if (!message.trim() || !profile || sending) return;
+    setSending(true);
+    try {
+      const newComment = await addComment(projectId, profile.id, message.trim());
+      setComments((prev) => [newComment, ...prev]);
+      setMessage("");
+    } catch (err) {
+      console.error("Failed to send comment:", err);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <div className="p-3 md:p-6 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
-        <h4 className="md:text-lg font-semibold">Comments</h4>
+        <h4 className="md:text-lg font-semibold">
+          Comments {comments.length > 0 && `(${comments.length})`}
+        </h4>
 
         <div className="relative text-xs md:text-sm">
           <button
@@ -79,17 +80,13 @@ export default function ProjectComments() {
           >
             Sort by ·{" "}
             <span className="font-semibold">
-              {sortBy === "newest"
-                ? "Newest first"
-                : sortBy === "oldest"
-                  ? "Oldest first"
-                  : "Most relevant"}
+              {sortBy === "newest" ? "Newest first" : "Oldest first"}
             </span>
             <ChevronDown className="w-4 h-4" />
           </button>
 
           {openSort && (
-            <div className="absolute right-0 mt-2 w-44 bg-white shadow-lg z-50">
+            <div className="absolute right-0 mt-2 w-44 bg-white shadow-lg z-50 rounded-lg border border-accent/10">
               {options.map((opt) => (
                 <button
                   key={opt.key}
@@ -118,12 +115,14 @@ export default function ProjectComments() {
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
             className="text-sm md:text-base pr-20 py-5 border-0 border-b"
+            disabled={sending}
           />
 
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
             <button
               onClick={handleSendMessage}
-              className="p-2 rounded-full hover:bg-gray-100"
+              disabled={sending}
+              className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-50"
             >
               <SendHorizontal className="w-4 h-4" />
             </button>
@@ -132,42 +131,55 @@ export default function ProjectComments() {
       </div>
 
       <div className="space-y-5 overflow-y-auto pr-2 flex-1">
-        {sortedMessages.map((msg) => (
-          <div key={msg.id} className="flex gap-3">
-            <Avatar className="md:w-10 md:h-10 shrink-0">
-              {msg.avatar ? (
-                <AvatarImage src={msg.avatar} />
-              ) : (
-                <AvatarFallback className="bg-blue-600 text-white font-bold">
-                  {msg.user[0]}
-                </AvatarFallback>
-              )}
-            </Avatar>
+        {sortedComments.length === 0 ? (
+          <p className="text-center text-accent/40 text-sm py-8">
+            No comments yet. Be the first to comment.
+          </p>
+        ) : (
+          sortedComments.map((comment) => {
+            const isYou = profile && comment.author?.id === profile.id;
+            const roleBadge = {
+              client: { label: "Client", className: "bg-blue-100 text-blue-700" },
+              contractor: { label: "Editor", className: "bg-purple-100 text-purple-700" },
+              admin: { label: "Admin", className: "bg-amber-100 text-amber-700" },
+            };
+            const badge = roleBadge[comment.author?.role];
 
-            <div className="flex-1">
-              <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-1">
-                <span className="font-semibold text-sm md:text-base">
-                  {msg.user}
-                </span>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs md:text-sm text-gray-500">
-                    {msg.time}
-                  </span>
-
-                  {msg.isEditor && (
-                    <span className="text-xs text-gray-500 md:px-2 py-0.5">
-                      Internal
-                    </span>
+            return (
+              <div key={comment.id} className="flex gap-3">
+                <Avatar className="md:w-10 md:h-10 shrink-0">
+                  {comment.author?.avatar_url ? (
+                    <AvatarImage src={comment.author.avatar_url} />
+                  ) : (
+                    <AvatarFallback className="bg-primary text-white font-bold">
+                      {comment.author?.name?.[0] || "?"}
+                    </AvatarFallback>
                   )}
+                </Avatar>
+
+                <div className="flex-1">
+                  <div className="flex flex-col md:flex-row md:items-center md:gap-2 mb-1">
+                    <span className="font-semibold text-sm md:text-base">
+                      {isYou ? "You" : comment.author?.name || "Unknown"}
+                    </span>
+                    {badge && (
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badge.className}`}>
+                        {badge.label}
+                      </span>
+                    )}
+                    <span className="text-xs md:text-sm text-gray-500">
+                      {timeAgo(comment.created_at)}
+                    </span>
+                  </div>
+
+                  <p className="text-gray-700 text-sm md:text-base leading-relaxed">
+                    {comment.content}
+                  </p>
                 </div>
               </div>
-
-              <p className="text-gray-700 text-sm md:text-base leading-relaxed">
-                {msg.message}
-              </p>
-            </div>
-          </div>
-        ))}
+            );
+          })
+        )}
       </div>
     </div>
   );

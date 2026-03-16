@@ -1,10 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
-import { X, Upload, Plus, Trash2 } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DialogClose } from "@/components/ui/dialog";
 import {
   Dialog,
@@ -21,13 +22,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormSection, FormField } from "./FormSection";
+import { createProject } from "@/lib/queries/projects";
+import { hasBranding } from "@/lib/queries/branding";
+import Link from "next/link";
 
-export default function NewProjectRequestModal({ isOpen, setIsOpen }) {
+export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, onProjectCreated }) {
   const {
     register,
     handleSubmit,
     formState: { errors },
-    watch,
     setValue,
     reset,
   } = useForm({
@@ -35,49 +38,84 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen }) {
       projectTitle: "",
       projectDescription: "",
       platform: "",
-      clientName: "",
-      clientLength: "",
-      footage: "",
-      notifyTeam: false,
-      editingSpeed: "",
+      desiredLength: "",
+      priority: "medium",
+      cloudFolderLink: "",
+      editingNotes: "",
       additionalNotes: "",
+      deadline: "",
     },
   });
 
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [applyBranding, setApplyBranding] = useState(false);
+  const [brandingExists, setBrandingExists] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
 
-  const onSubmit = (data) => {
-    console.log(data);
+  useEffect(() => {
+    if (clientId) {
+      hasBranding(clientId).then(setBrandingExists).catch(() => setBrandingExists(false));
+    }
+  }, [clientId]);
+
+  const onSubmit = async (data) => {
+    if (!clientId) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const assetLinks = data.cloudFolderLink.trim() ? [data.cloudFolderLink.trim()] : [];
+
+      await createProject({
+        title: data.projectTitle,
+        description: data.projectDescription || null,
+        platform: data.platform || null,
+        desired_length: data.desiredLength || null,
+        priority: data.priority || "medium",
+        style_preferences: data.editingNotes || null,
+        apply_branding: applyBranding,
+        additional_notes: data.additionalNotes || null,
+        asset_links: assetLinks,
+        deadline: data.deadline || null,
+        client_id: clientId,
+      });
+
+      reset();
+      setApplyBranding(false);
+      setIsOpen(false);
+      onProjectCreated?.();
+    } catch (err) {
+      console.error("Failed to create project:", err);
+      setSubmitError(err.message || "Failed to create project. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReset = () => {
     reset();
-    setUploadedFiles([]);
-    setIsOpen(false);
-  };
-
-  const handleFileUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setUploadedFiles((prev) => [...prev, ...files]);
-  };
-
-  const removeFile = (index) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    setApplyBranding(false);
+    setSubmitError(null);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent
+        showCloseButton={false}
         className="
-    w-full max-w-[95vw] sm:max-w-7xl
-    max-h-[90vh]
-    rounded-4xl
-    bg-tertiary
-    p-0
-    overflow-y-auto
-    overscroll-contain
-    scroll-smooth
-    no-scrollbar 
-  "
+          w-full max-w-[95vw] sm:max-w-7xl
+          max-h-[90vh]
+          rounded-4xl
+          bg-tertiary
+          p-0
+          overflow-y-auto
+          overscroll-contain
+          scroll-smooth
+          no-scrollbar
+        "
       >
-        <DialogHeader className="bg-tertiary border-primary/20 p-10 pb-4 top-0">
+        {/* ─── Header ─── */}
+        <DialogHeader className="px-10 pt-10 pb-6">
           <div className="relative">
             <DialogTitle className="text-2xl font-bold font-onest text-accent">
               New Project Request
@@ -92,232 +130,199 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen }) {
               </button>
             </DialogClose>
           </div>
-          <DialogDescription className="text-md font-onest text-accent/60">
-            Each request creates one completed video. For multiple outputs,
-            submit separate requests
+          <DialogDescription className="text-sm font-onest text-accent/60 mt-1">
+            Each request creates one completed video. For multiple outputs, submit separate requests
           </DialogDescription>
         </DialogHeader>
 
-        <div className="p-6 space-y-6">
+        {/* ─── Form Body ─── */}
+        <div className="px-10 pb-10 space-y-10">
+
+          {/* ─── Project Details ─── */}
           <FormSection title="Project Details">
-            <FormField
-              className="text-accent text-lg font-medium font-onest"
-              label="Project Title"
-              required
-              error={errors.projectTitle}
-            >
+            <FormField label="Project Title" required error={errors.projectTitle}>
               <Input
                 placeholder="Enter project title"
                 {...register("projectTitle", {
                   required: "Project title is required",
                 })}
-                className=" border-accent/20 text-accent font-medium placeholder:text-accent/80 focus:border-primary focus:ring-primary"
+                className="h-12 border-accent/20 text-accent placeholder:text-accent/40 focus:border-primary focus:ring-primary"
               />
             </FormField>
 
-            <FormField
-              label="Project Description"
-              error={errors.projectDescription}
-            >
+            <FormField label="Project Description" error={errors.projectDescription}>
               <Textarea
-                placeholder="Describe your project..."
-                rows={4}
+                placeholder="Describe your video"
+                rows={5}
                 {...register("projectDescription")}
-                className="   bg-white!
-      border-accent/20
-      text-accent
-      placeholder:text-accent/40
-      focus:border-primary
-      focus:ring-primary
-      resize-none
-      min-h-40      
-      w-full
-      wrap-break-word
-      overflow-x-hidden  "
+                className="bg-white! border-accent/20 text-accent placeholder:text-accent/40 focus:border-primary focus:ring-primary resize-none min-h-[140px] w-full"
               />
+              <p className="text-xs text-accent/50 mt-1.5">
+                Describe purpose, tone and goals
+              </p>
             </FormField>
 
             <FormField label="Platform" required error={errors.platform}>
               <Select onValueChange={(value) => setValue("platform", value)}>
-                <SelectTrigger className="bg-white! border-accent/20 text-accent focus:border-primary focus:ring-primary placeholder:text-accent/80 w-full">
-                  <SelectValue placeholder="Select platform" />
+                <SelectTrigger className="h-12 bg-white! border-accent/20 text-accent focus:border-primary focus:ring-primary w-full">
+                  <SelectValue placeholder="Select Platform" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="instagram">Instagram</SelectItem>
                   <SelectItem value="tiktok">TikTok</SelectItem>
                   <SelectItem value="youtube">YouTube</SelectItem>
                   <SelectItem value="linkedin">LinkedIn</SelectItem>
+                  <SelectItem value="facebook">Facebook</SelectItem>
                   <SelectItem value="internal">Internal</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="Desired Length" required error={errors.platform}>
-              <Select onValueChange={(value) => setValue("platform", value)}>
-                <SelectTrigger className="bg-white! border-accent/20 text-accent focus:border-primary focus:ring-primary placeholder:text-accent/80 w-full">
-                  <SelectValue placeholder="Select Length" />
+            <FormField label="Desired Length" required error={errors.desiredLength}>
+              <Select onValueChange={(value) => setValue("desiredLength", value)}>
+                <SelectTrigger className="h-12 bg-white! border-accent/20 text-accent focus:border-primary focus:ring-primary w-full">
+                  <SelectValue placeholder="Select length" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="5">5 minutes</SelectItem>
-                  <SelectItem value="10">10 minutes</SelectItem>
-                  <SelectItem value="15">15 minutes</SelectItem>
-                  <SelectItem value="20">20 minutes</SelectItem>
-                  <SelectItem value="25">25 minutes</SelectItem>
+                  <SelectItem value="15-30 seconds">15-30 seconds</SelectItem>
+                  <SelectItem value="30-60 seconds">30-60 seconds</SelectItem>
+                  <SelectItem value="1-3 minutes">1-3 minutes</SelectItem>
+                  <SelectItem value="3-5 minutes">3-5 minutes</SelectItem>
+                  <SelectItem value="5-10 minutes">5-10 minutes</SelectItem>
+                  <SelectItem value="10+ minutes">10+ minutes</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
+
+            <FormField label="Priority">
+              <Select defaultValue="medium" onValueChange={(value) => setValue("priority", value)}>
+                <SelectTrigger className="h-12 bg-white! border-accent/20 text-accent focus:border-primary focus:ring-primary w-full">
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+
+            <FormField label="Deadline">
+              <Input
+                type="date"
+                {...register("deadline")}
+                className="h-12 border-accent/20 text-accent focus:border-primary focus:ring-primary"
+              />
+            </FormField>
           </FormSection>
 
-          <FormField label="Optional Uploads">
-            <div className="space-y-3">
-              <div className="border-2 border-dashed border-accent/20 rounded-lg p-8 text-center hover:border-primary/40 transition-colors">
-                <input
-                  type="file"
-                  multiple
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="file-upload"
-                />
-                <label
-                  htmlFor="file-upload"
-                  className="cursor-pointer flex flex-col items-center gap-3"
-                >
-                  <Button
-                    type="button"
-                    onClick={() =>
-                      document.getElementById("file-upload").click()
-                    }
-                    className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" />
-                    Upload Files
-                  </Button>
-                  <p className="text-sm text-accent/60">
-                    Upload Supporting files (max total 1GB)
-                  </p>
-                </label>
-              </div>
-
-              {uploadedFiles.length > 0 && (
-                <div className="space-y-2">
-                  {uploadedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between bg-white p-3 rounded-lg border border-accent/10"
-                    >
-                      <span className="text-sm text-accent truncate flex-1">
-                        {file.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(index)}
-                        className="text-danger hover:text-danger/80 ml-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </FormField>
-
-          <div className="flex items-start gap-3 bg-primary/5 p-8 rounded-lg border border-primary/20">
-            <input
-              type="checkbox"
-              id="branding-template"
-              {...register("applyBranding")}
-              className="mt-3 w-4 h-4 rounded border-accent/30 text-primary focus:ring-primary"
-            />
-            <label
-              htmlFor="branding-template"
-              className="flex-1 cursor-pointer"
-            >
-              <p className="text-lg font-onest font-bold text-accent">
-                Apply my branding template to this project
-              </p>
-              <p className="text-xs font-onest text-accent/60 mt-1">
-                Used saved colors, fonts, logos, and editing style
-              </p>
-            </label>
-          </div>
-
-          <FormSection title="Editing Instructions">
-            <FormField label="Style Preferences">
-              <Textarea
-                placeholder="Describe the style, mood, transitions, etc."
-                rows={5}
-                className="
-      bg-white!
-      border-accent/20
-      text-accent
-      placeholder:text-accent/40
-      focus:border-primary
-      focus:ring-primary
-      resize-none
-      min-h-40      
-      w-full
-      wrap-break-word
-      overflow-x-hidden    
-    "
+          {/* ─── Footage & Assets ─── */}
+          <FormSection title="Footage & Assets">
+            <FormField label="Cloud Folder Link (Required)" required error={errors.cloudFolderLink}>
+              <Input
+                placeholder="Paste Google Drive, Dropbox, or OneDrive link"
+                {...register("cloudFolderLink", {
+                  required: "Cloud folder link is required",
+                })}
+                className="h-12 border-accent/20 text-accent placeholder:text-accent/40 focus:border-primary focus:ring-primary"
               />
             </FormField>
 
-            <div>
+            <div
+              className={`flex items-start gap-3 bg-accent/5 rounded-xl p-5 ${brandingExists ? "cursor-pointer" : "opacity-60"}`}
+              onClick={() => brandingExists && setApplyBranding(!applyBranding)}
+            >
+              <Checkbox
+                checked={applyBranding}
+                onCheckedChange={(checked) => brandingExists && setApplyBranding(checked)}
+                disabled={!brandingExists}
+                className="mt-0.5 border-accent/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
               <div>
-                <p className="text-sm font-medium text-accent/50">
-                  Style direction, pacing, mood, music preferences...
+                <p className="text-sm font-semibold text-accent">
+                  Apply my branding template to this project
                 </p>
+                {brandingExists ? (
+                  <p className="text-xs text-accent/50 mt-0.5">
+                    Use saved colors, fonts, logos, and editing style
+                  </p>
+                ) : (
+                  <p className="text-xs text-accent/50 mt-0.5">
+                    No branding saved yet.{" "}
+                    <Link href="/dashboard/client/branding" className="text-primary font-semibold hover:underline">
+                      Set up branding →
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </FormSection>
 
-          <FormSection title="Additional Notes">
-            <FormField
-              label="Notes for Editor (optional)"
-              error={errors.additionalNotes}
-            >
+          {/* ─── Editing Instructions ─── */}
+          <FormSection title="Editing Instructions">
+            <FormField label="Editing Notes" required error={errors.editingNotes}>
+              <Textarea
+                placeholder="Style direction, pacing, mood, music preferences..."
+                rows={5}
+                {...register("editingNotes", {
+                  required: "Editing notes are required",
+                })}
+                className="bg-white! border-accent/20 text-accent placeholder:text-accent/40 focus:border-primary focus:ring-primary resize-none min-h-[140px] w-full"
+              />
+              <p className="text-xs text-accent/50 mt-1.5">
+                Style direction, pacing, mood, music preferences...
+              </p>
+            </FormField>
+          </FormSection>
+
+          {/* ─── Additional Notes ─── */}
+          <FormSection title="Additional notes">
+            <FormField label="Notes For Editor (Optional)">
               <Textarea
                 placeholder="Any additional clarifications..."
                 rows={4}
                 {...register("additionalNotes")}
-                className="
-                 bg-white!
-      border-accent/20
-      text-accent
-      placeholder:text-accent/40
-      focus:border-primary
-      focus:ring-primary
-      resize-none
-      min-h-40      
-      w-full
-      wrap-break-word
-      overflow-x-hidden"
+                className="bg-white! border-accent/20 text-accent placeholder:text-accent/40 focus:border-primary focus:ring-primary resize-none min-h-[120px] w-full"
               />
             </FormField>
           </FormSection>
 
-          <div className="flex flex-col gap-4 pt-4 border-t border-accent/10 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm sm:text-base text-accent font-onest">
-              You will receive a confirmation once your project is added to your
-              dashboard
+          {submitError && (
+            <div className="bg-danger/10 border border-danger/30 rounded-lg p-4">
+              <p className="text-sm text-danger">{submitError}</p>
+            </div>
+          )}
+
+          {/* ─── Footer ─── */}
+          <div className="flex flex-col gap-4 pt-6 border-t border-accent/10 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-accent/60 font-onest">
+              You will receive a confirmation once your project is added to your dashboard
             </p>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:gap-4 sm:items-center">
+            <div className="flex items-center gap-4 shrink-0">
               <Button
                 type="button"
-                onClick={() => setIsOpen(false)}
-                className="w-full sm:w-auto bg-white text-md font-semibold font-onest text-primary hover:bg-accent/5"
+                onClick={handleReset}
+                variant="ghost"
+                className="text-primary font-semibold font-onest hover:bg-primary/5"
               >
-                Reset to defaults
+                Reset to Defaults
               </Button>
 
               <Button
                 type="button"
                 onClick={handleSubmit(onSubmit)}
-                className="w-full sm:w-auto bg-primary text-md font-onest font-semibold hover:bg-primary/90 text-white"
+                disabled={isSubmitting}
+                className="bg-primary text-white font-onest font-semibold hover:bg-primary/90 px-8 h-11 disabled:opacity-50"
               >
-                Submit Request
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  "Submit Request"
+                )}
               </Button>
             </div>
           </div>

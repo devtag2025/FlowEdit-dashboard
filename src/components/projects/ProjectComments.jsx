@@ -5,6 +5,7 @@ import { ChevronDown, SendHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { fetchComments, addComment, fetchUserProfile } from "@/lib/queries/projects";
+import { notifyProjectEvent } from "@/lib/queries/notifications";
 
 function timeAgo(dateStr) {
   const now = new Date();
@@ -21,7 +22,7 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function ProjectComments({ projectId }) {
+export default function ProjectComments({ projectId, project }) {
   const [comments, setComments] = useState([]);
   const [profile, setProfile] = useState(null);
   const [message, setMessage] = useState("");
@@ -59,6 +60,13 @@ export default function ProjectComments({ projectId }) {
       const newComment = await addComment(projectId, profile.id, message.trim());
       setComments((prev) => [newComment, ...prev]);
       setMessage("");
+      // Notify other participants about the new comment
+      if (project) {
+        const recipientIds = [project.client_id, project.contractor_id].filter((id) => id && id !== profile.id);
+        if (recipientIds.length) {
+          notifyProjectEvent({ event: "new_comment", project, actorName: profile.name, recipientIds }).catch(console.error);
+        }
+      }
     } catch (err) {
       console.error("Failed to send comment:", err);
     } finally {

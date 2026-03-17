@@ -1,6 +1,22 @@
-import { X } from "lucide-react";
-import { Clock } from "lucide-react";
+import { X, Clock } from "lucide-react";
 import React from "react";
+
+function formatTime(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+const typeLabels = {
+  project_update: "Project Update",
+  assignment: "Assignment",
+};
 
 const NotificationDetail = ({
   notification,
@@ -8,72 +24,48 @@ const NotificationDetail = ({
   isMobile,
   setMobileDetailOpen,
 }) => {
-  if (isMobile) {
-    return (
-      <div className="space-y-6 p-3 relative">
-        <div className="absolute top-4 right-3">
-          <X
-            className="w-4 h-4 text-gray-700 cursor-pointer"
-            onClick={() => setMobileDetailOpen(false)}
-          />
-        </div>
-        <div className="mt-4 flex flex-col items-start justify-between space-y-6">
-          <h2 className="text-2xl font-semibold text-accent mb-2">
-            {notification.title}
-          </h2>
-          <div className="flex items-center gap-3 mt-4">
-            <span className="px-4 py-1 rounded text-sm bg-primary text-white font-semibold capitalize">
-              {notification.type} update
-            </span>
+  const typeLabel = typeLabels[notification.type] || notification.type;
 
-            <span className=" flex items-center gap-1 font-semibold text-sm text-gray-600">
-              <Clock className="w-4 h-4" />
-              {notification.time}
-            </span>
-          </div>
-
-          <p className="text-accent font-semibold text-lg">
-            {notification.description}
-          </p>
-
-          <p className="text-slate-700 whitespace-pre-line">
-            {notification.message}
-          </p>
-        </div>
-      </div>
-    );
-  }
-  return (
+  const content = (
     <div className="space-y-6 p-3 relative">
-      <div className="absolute top-0 right-0">
+      <div className={`absolute ${isMobile ? "top-4 right-3" : "top-0 right-0"}`}>
         <X
           className="w-4 h-4 text-gray-700 cursor-pointer"
-          onClick={() => setSelectedNotification(null)}
+          onClick={() => isMobile ? setMobileDetailOpen(false) : setSelectedNotification(null)}
         />
       </div>
       <div className="mt-4 flex flex-col items-start justify-between space-y-6">
-        <h2 className="text-2xl font-semibold text-accent mb-2">
+        <h2 className="text-2xl font-semibold text-accent mb-2 pr-6">
           {notification.title}
         </h2>
         <div className="flex items-center gap-3 mt-4">
           <span className="px-4 py-1 rounded text-sm bg-primary text-white font-semibold capitalize">
-            {notification.type} update
+            {typeLabel}
           </span>
 
-          <span className=" flex items-center gap-1 font-semibold text-sm text-gray-600">
+          <span className="flex items-center gap-1 font-semibold text-sm text-gray-600">
             <Clock className="w-4 h-4" />
-            {notification.time}
+            {formatTime(notification.created_at)}
           </span>
         </div>
 
-        <p className="text-accent font-semibold text-lg">
-          {notification.description}
+        <p className="text-slate-700 whitespace-pre-line leading-relaxed">
+          {notification.message}
         </p>
 
-        <p className="text-slate-700">{notification.message}</p>
+        {notification.reference_id && (
+          <a
+            href={`${window.location.pathname.replace("/notification", "")}/projects/${notification.reference_id}`}
+            className="text-primary font-semibold text-sm hover:underline"
+          >
+            View Project →
+          </a>
+        )}
       </div>
     </div>
   );
+
+  return content;
 };
 
 export default NotificationDetail;

@@ -33,6 +33,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import AssignContractorModal from "@/components/Dashboard/AssignContractorModal";
 import MarkPostedModal from "@/components/Dashboard/MarkPostedModal";
+import { notifyProjectEvent } from "@/lib/queries/notifications";
 
 const filters = [
   "All",
@@ -155,6 +156,13 @@ const AdminDashboard = () => {
     if (!profile) return;
     try {
       await assignContractor(projectId, contractorId, profile.id);
+      // Notify client that contractor was assigned, and contractor about the new assignment
+      if (selectedProject) {
+        if (selectedProject.client_id) {
+          notifyProjectEvent({ event: "contractor_assigned", project: selectedProject, actorName: profile.name, recipientIds: [selectedProject.client_id] }).catch(console.error);
+        }
+        notifyProjectEvent({ event: "assigned_to_you", project: selectedProject, actorName: profile.name, recipientIds: [contractorId] }).catch(console.error);
+      }
       setAssignModalOpen(false);
       loadData();
     } catch (err) {
@@ -170,6 +178,13 @@ const AdminDashboard = () => {
   const handleMarkPosted = async (projectId, publishedUrl) => {
     try {
       await markPosted(projectId, publishedUrl);
+      // Notify client + contractor that project was posted
+      if (postedProject) {
+        const recipientIds = [postedProject.client_id, postedProject.contractor_id].filter(Boolean);
+        if (recipientIds.length) {
+          notifyProjectEvent({ event: "marked_as_posted", project: postedProject, actorName: profile?.name, recipientIds }).catch(console.error);
+        }
+      }
       setPostedModalOpen(false);
       loadData();
     } catch (err) {

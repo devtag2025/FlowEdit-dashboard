@@ -22,8 +22,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormSection, FormField } from "./FormSection";
-import { createProject } from "@/lib/queries/projects";
+import { createProject, fetchUserProfile } from "@/lib/queries/projects";
 import { hasBranding } from "@/lib/queries/branding";
+import { notifyProjectEvent, fetchAdminIds } from "@/lib/queries/notifications";
 import Link from "next/link";
 
 export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, onProjectCreated }) {
@@ -66,7 +67,7 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, on
     try {
       const assetLinks = data.cloudFolderLink.trim() ? [data.cloudFolderLink.trim()] : [];
 
-      await createProject({
+      const newProject = await createProject({
         title: data.projectTitle,
         description: data.projectDescription || null,
         platform: data.platform || null,
@@ -79,6 +80,17 @@ export default function NewProjectRequestModal({ isOpen, setIsOpen, clientId, on
         deadline: data.deadline || null,
         client_id: clientId,
       });
+
+      // Notify admins about new project
+      const [userProfile, adminIds] = await Promise.all([fetchUserProfile(), fetchAdminIds()]);
+      if (adminIds.length && newProject) {
+        notifyProjectEvent({
+          event: "project_created",
+          project: { id: newProject.id, title: data.projectTitle },
+          actorName: userProfile?.name || "A client",
+          recipientIds: adminIds,
+        }).catch(console.error);
+      }
 
       reset();
       setApplyBranding(false);

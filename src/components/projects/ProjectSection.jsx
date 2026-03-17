@@ -28,6 +28,7 @@ import {
   updateVersionStatus,
   addComment,
 } from "@/lib/queries/projects";
+import { notifyProjectEvent, fetchAdminIds } from "@/lib/queries/notifications";
 import Loader from "@/components/common/Loader";
 import ProjectComments from "./ProjectComments";
 import ProjectApprovePopup from "./ProjectApprovePopup";
@@ -133,6 +134,12 @@ function ProjectSection({ projectId }) {
       if (latestVer) {
         await updateVersionStatus(latestVer.id, "approved");
       }
+      // Notify contractor + admins
+      const recipientIds = [];
+      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      const adminIds = await fetchAdminIds();
+      recipientIds.push(...adminIds.filter((id) => id !== profile.id));
+      notifyProjectEvent({ event: "project_approved", project, actorName: profile.name, recipientIds }).catch(console.error);
       await reloadProject();
     } catch (err) {
       console.error("Failed to approve project:", err);
@@ -151,6 +158,10 @@ function ProjectSection({ projectId }) {
         await updateVersionStatus(latestVer.id, "rejected");
       }
       await updateProjectStatus(projectId, "in_progress");
+      // Notify contractor that revision was requested
+      const recipientIds = [];
+      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      notifyProjectEvent({ event: "revision_requested", project, actorName: profile.name, recipientIds }).catch(console.error);
       setRevisionReason("");
       setIsRevisionOpen(false);
       await reloadProject();
@@ -166,6 +177,10 @@ function ProjectSection({ projectId }) {
     setSubmittingForReview(true);
     try {
       await updateProjectStatus(projectId, "review");
+      // Notify client that project is ready for review
+      if (project.client_id) {
+        notifyProjectEvent({ event: "submitted_for_review", project, actorName: profile?.name, recipientIds: [project.client_id] }).catch(console.error);
+      }
       setProject((prev) => ({ ...prev, status: "review" }));
     } catch (err) {
       console.error("Failed to submit for review:", err);
@@ -183,6 +198,12 @@ function ProjectSection({ projectId }) {
       // Save posting details first, then mark ready
       await updatePostingDetails(projectId, postingDetails);
       const updated = await markReadyToPost(projectId);
+      // Notify admins that project is ready to post
+      const adminIds = await fetchAdminIds();
+      const recipientIds = adminIds.filter((id) => id !== profile?.id);
+      if (recipientIds.length) {
+        notifyProjectEvent({ event: "marked_ready_to_post", project, actorName: profile?.name, recipientIds }).catch(console.error);
+      }
       setProject((prev) => ({ ...prev, ...updated }));
     } catch (err) {
       console.error("Failed to mark ready:", err);
@@ -197,6 +218,13 @@ function ProjectSection({ projectId }) {
     setMarkingPosted(true);
     try {
       const updated = await markPosted(projectId, publishedUrl.trim());
+      // Notify client + contractor that project was posted
+      const recipientIds = [];
+      if (project.client_id) recipientIds.push(project.client_id);
+      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      if (recipientIds.length) {
+        notifyProjectEvent({ event: "marked_as_posted", project, actorName: profile?.name, recipientIds }).catch(console.error);
+      }
       setProject((prev) => ({ ...prev, ...updated }));
     } catch (err) {
       console.error("Failed to mark as posted:", err);
@@ -553,7 +581,7 @@ function ProjectSection({ projectId }) {
             )}
           </div>
 
-          <ProjectComments projectId={projectId} />
+          <ProjectComments projectId={projectId} project={project} />
         </div>
       </CardContent>
 

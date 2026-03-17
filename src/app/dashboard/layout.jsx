@@ -25,6 +25,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { getUnreadCount } from "@/lib/queries/notifications";
 
 const navigationConfig = {
   client: [
@@ -36,6 +37,7 @@ const navigationConfig = {
   ],
   admin: [
     { name: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
+    { name: "Notifications", href: "/dashboard/admin/notification", icon: Bell },
     { name: "Broadcasts", href: "/dashboard/admin/broadcasts", icon: RadioIcon },
     { name: "Clients", href: "/dashboard/admin/clients", icon: UserRoundIcon },
     { name: "Contractors", href: "/dashboard/admin/contractors", icon: UsersRound },
@@ -52,7 +54,7 @@ const navigationConfig = {
 export default function DashboardLayout({ children }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const pathname = usePathname();
@@ -72,11 +74,11 @@ export default function DashboardLayout({ children }) {
           .eq("id", user.id)
           .single();
         setUserProfile(profile);
-        console.log("profile",profile)
+        getUnreadCount(user.id).then(setUnreadCount).catch(() => setUnreadCount(0));
       }
     };
     fetchProfile();
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     const handleScroll = () => {

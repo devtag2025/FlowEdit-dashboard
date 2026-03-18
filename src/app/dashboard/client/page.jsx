@@ -1,16 +1,10 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-<<<<<<< Updated upstream
-import { Plus, Search, Edit, Download, MessageCircle } from "lucide-react";
-import { stats, filters, projects } from "@/utils/dashboard-client";
-import StatCard from "@/components/Dashboard/StatCard";
-=======
 import { Plus, Search, Eye } from "lucide-react";
 import { Activity, Clock, CheckCircle } from "lucide-react";
 import StatCard from "@/components/dashboard/StatCard";
->>>>>>> Stashed changes
 import { Input } from "@/components/ui/input";
 import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
 import FilterButton from "@/components/dashboard/FilterButton";
@@ -23,6 +17,74 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import Loader from "@/components/common/Loader";
+import { fetchClientProjects, fetchUserProfile } from "@/lib/queries/projects";
+
+const filters = [
+  "All",
+  "Submitted",
+  "In Progress",
+  "Review",
+  "Completed",
+  "Ready to Post",
+  "Posted",
+];
+
+const filterToStatus = {
+  Submitted: "submitted",
+  "In Progress": "in_progress",
+  Review: "review",
+  Completed: "completed",
+  "Ready to Post": "ready_to_post",
+  Posted: "posted",
+};
+
+function computeStats(projects) {
+  const total = projects.length;
+  const active = projects.filter(
+    (p) => p.status === "submitted" || p.status === "in_progress" || p.status === "review"
+  ).length;
+  const inReview = projects.filter((p) => p.status === "review").length;
+  const completed = projects.filter(
+    (p) => p.status === "completed" || p.status === "ready_to_post" || p.status === "posted"
+  ).length;
+
+  return [
+    {
+      icon: Activity,
+      title: "Active Projects",
+      percentage: total > 0 ? `${Math.round((active / total) * 100)}%` : "0%",
+      subtitle: `${active} of ${total} projects`,
+    },
+    {
+      icon: Clock,
+      title: "Videos in Review",
+      percentage: total > 0 ? `${Math.round((inReview / total) * 100)}%` : "0%",
+      subtitle: `${inReview} in review`,
+    },
+    {
+      icon: CheckCircle,
+      title: "Completed Projects",
+      percentage: total > 0 ? `${Math.round((completed / total) * 100)}%` : "0%",
+      subtitle: `${completed} of ${total} projects`,
+    },
+  ];
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good Morning";
+  if (hour < 17) return "Good Afternoon";
+  return "Good Evening";
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "numeric",
+  });
+}
 
 const Dashboard = () => {
   const router = useRouter();
@@ -31,20 +93,58 @@ const Dashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const userProfile = await fetchUserProfile();
+      if (!userProfile) return;
+      setProfile(userProfile);
+      const data = await fetchClientProjects(userProfile.id);
+      setProjects(data || []);
+    } catch (err) {
+      console.error("Failed to load projects:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleOpenProject = (project) => {
     setLoading(true);
     router.push(`/dashboard/client/projects/${project.id}`);
   };
 
+  const handleProjectCreated = () => {
+    loadData();
+  };
+
   const filteredProjects = projects.filter((project) => {
     const matchesFilter =
-      activeFilter === "All" || project.status === activeFilter;
+      activeFilter === "All" || project.status === filterToStatus[activeFilter];
     const matchesSearch =
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.platform.toLowerCase().includes(searchQuery.toLowerCase());
+      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (project.platform || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
+
+  const stats = computeStats(projects);
+
+  const canSubmitProject = true;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -53,31 +153,39 @@ const Dashboard = () => {
           <Loader />
         </div>
       )}
-      <div className="min-h-screen bg-secondary p-4 md:p-8">
+      <div className="bg-secondary p-4 md:p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1 sm:mb-2">
-                Good Evening, Marcus
+                {getGreeting()}, {profile?.name?.split(" ")[0] || "there"}
               </h1>
               <p className="text-sm sm:text-base text-accent/70 font-onest font-bold">
                 Track your videos, revisions and progress
               </p>
             </div>
-            <div>
+            <div className="relative">
               <Button
                 onClick={() => setIsProjectModalOpen(true)}
-                className="flex items-center justify-center gap-2 w-auto sm:w-auto bg-primary text-white px-7 sm:px-6 h-10 sm:h-11 rounded-xl text-sm sm:text-base font-semibold font-onest"
+                disabled={!canSubmitProject}
+                className="flex items-center justify-center gap-2 w-auto sm:w-auto bg-primary text-white px-7 sm:px-6 h-10 sm:h-11 rounded-xl text-sm sm:text-base font-semibold font-onest disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
                 New Project
               </Button>
+              {!canSubmitProject && (
+                <p className="text-xs text-danger mt-1 text-right">
+                  You need an active subscription to submit projects.
+                </p>
+              )}
             </div>
           </div>
 
           <NewProjectRequestModal
             isOpen={isProjectModalOpen}
             setIsOpen={setIsProjectModalOpen}
+            clientId={profile?.id}
+            onProjectCreated={handleProjectCreated}
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -94,55 +202,22 @@ const Dashboard = () => {
             </div>
 
             <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="relative w-full overflow-hidden ">
+              <div className="relative w-full overflow-hidden">
                 <div className="w-full">
                   <div className="lg:hidden w-full">
                     <Select
                       value={activeFilter}
                       onValueChange={setActiveFilter}
                     >
-                      <SelectTrigger
-                        className="
-        h-11 w-full
-        rounded-xl
-        border border-accent/20
-        bg-white!
-        text-sm font-semibold text-accent
-
-        transition-all
-        hover:border-primary/50
-        hover:bg-accent/5
-
-        focus:ring-2
-        focus:ring-primary/40
-        focus:border-primary
-      "
-                      >
+                      <SelectTrigger className="h-11 w-full rounded-xl border border-accent/20 bg-white! text-sm font-semibold text-accent transition-all hover:border-primary/50 hover:bg-accent/5 focus:ring-2 focus:ring-primary/40 focus:border-primary">
                         <SelectValue placeholder="Select filter" />
                       </SelectTrigger>
-
-                      <SelectContent
-                        className="
-        rounded-xl
-        border border-accent/20
-        bg-white
-        shadow-lg
-      "
-                      >
+                      <SelectContent className="rounded-xl border border-accent/20 bg-white shadow-lg">
                         {filters.map((filter) => (
                           <SelectItem
                             key={filter}
                             value={filter}
-                            className="
-            cursor-pointer
-            text-sm font-medium text-accent
-
-            focus:bg-primary/10
-            focus:text-accent
-
-            data-[state=checked]:bg-primary/15
-            data-[state=checked]:font-semibold
-          "
+                            className="cursor-pointer text-sm font-medium text-accent focus:bg-primary/10 focus:text-accent data-[state=checked]:bg-primary/15 data-[state=checked]:font-semibold"
                           >
                             {filter}
                           </SelectItem>
@@ -177,6 +252,7 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Desktop Table */}
             <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
               <table className="w-full">
                 <thead>
@@ -206,40 +282,28 @@ const Dashboard = () => {
                       className="border-b border-accent/10 hover:bg-accent/5 transition-colors"
                     >
                       <td className="p-4">
-                        <div className="space-y-2">
-                          <p className="font-semibold text-accent">
-                            {project.name}
-                          </p>
-                          <div className="w-32 h-1 bg-accent/10 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-primary rounded-full transition-all duration-500"
-                              style={{ width: `${project.progress}%` }}
-                            />
-                          </div>
-                        </div>
+                        <p className="font-semibold text-accent">
+                          {project.title}
+                        </p>
                       </td>
 
-                      <td className="p-4 text-accent/70">{project.platform}</td>
+                      <td className="p-4 text-accent/70 capitalize">
+                        {project.platform || "—"}
+                      </td>
 
                       <td className="p-4">
                         <StatusBadge status={project.status} />
                       </td>
 
                       <td className="p-4 text-accent/70">
-                        {project.lastUpdated}
+                        {formatDate(project.updated_at)}
                       </td>
 
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
                           <ActionButton
-                            icon={Edit}
-                            label="Edit"
-                            onClick={() => handleOpenProject(project)}
-                          />
-                          <ActionButton icon={Download} label="Download" />
-                          <ActionButton
-                            icon={MessageCircle}
-                            label="Comments"
+                            icon={Eye}
+                            label="View"
                             onClick={() => handleOpenProject(project)}
                           />
                         </div>
@@ -250,6 +314,7 @@ const Dashboard = () => {
               </table>
             </div>
 
+            {/* Mobile Cards */}
             <div className="lg:hidden space-y-4">
               {filteredProjects.map((project) => (
                 <div
@@ -259,37 +324,23 @@ const Dashboard = () => {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h3 className="font-semibold text-accent mb-1">
-                        {project.name}
+                        {project.title}
                       </h3>
-                      <p className="text-sm text-accent/70">
-                        {project.platform}
+                      <p className="text-sm text-accent/70 capitalize">
+                        {project.platform || "—"}
                       </p>
                     </div>
                     <StatusBadge status={project.status} />
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="w-full h-1.5 bg-accent/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full transition-all duration-500"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-accent/60">
-                      Last updated: {project.lastUpdated}
-                    </p>
-                  </div>
+                  <p className="text-xs text-accent/60">
+                    Last updated: {formatDate(project.updated_at)}
+                  </p>
 
                   <div className="flex items-center gap-2 pt-2">
                     <ActionButton
-                      icon={Edit}
-                      label="Edit"
-                      onClick={() => handleOpenProject(project)}
-                    />
-                    <ActionButton icon={Download} label="Download" />
-                    <ActionButton
-                      icon={MessageCircle}
-                      label="Comments"
+                      icon={Eye}
+                      label="View"
                       onClick={() => handleOpenProject(project)}
                     />
                   </div>
@@ -297,10 +348,12 @@ const Dashboard = () => {
               ))}
             </div>
 
-            {filteredProjects.length === 0 && (
+            {filteredProjects.length === 0 && !isLoading && (
               <div className="bg-tertiary rounded-2xl p-12 text-center">
                 <p className="text-accent/60">
-                  No projects found matching your criteria.
+                  {projects.length === 0
+                    ? "No projects yet. Click \"New Project\" to get started."
+                    : "No projects found matching your criteria."}
                 </p>
               </div>
             )}

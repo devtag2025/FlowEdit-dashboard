@@ -1,20 +1,17 @@
 "use client";
-
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent } from "../ui/card";
 
-const FontSection = () => {
-  const fonts = [
-    "Inter",
-    "Roboto",
-    "Times New Roman",
-    "Lato",
-    "Montserrat",
-    "Segoe UI Symbol",
-  ];
+const fonts = [
+  "Inter",
+  "Roboto",
+  "Times New Roman",
+  "Lato",
+  "Montserrat",
+  "Segoe UI Symbol",
+];
 
-  const [headingFont, setHeadingFont] = useState("Inter");
-  const [bodyFont, setBodyFont] = useState("Inter");
+const FontSection = ({ headingFont, bodyFont, onHeadingChange, onBodyChange }) => {
   return (
     <Card className="bg-tertiary rounded-2xl">
       <CardContent className="flex flex-col gap-5">
@@ -22,7 +19,6 @@ const FontSection = () => {
           <h3 className="text-xl md:text-2xl text-accent font-semibold mb-2">
             Fonts
           </h3>
-
           <p className="font-medium text-slate-600 text-xs md:text-base">
             Choose your preferred display and body fonts for titles, captions,
             and content.
@@ -35,8 +31,8 @@ const FontSection = () => {
             Heading Font
           </label>
           <select
-            value={headingFont}
-            onChange={(e) => setHeadingFont(e.target.value)}
+            value={headingFont || "Inter"}
+            onChange={(e) => onHeadingChange(e.target.value)}
             className="w-full p-4 rounded-lg bg-white focus:outline-none text-sm md:text-base"
           >
             {fonts.map((font) => (
@@ -49,7 +45,7 @@ const FontSection = () => {
           <div className="bg-white p-8 rounded-lg">
             <h3
               className="text-xl md:text-2xl text-accent"
-              style={{ fontFamily: headingFont }}
+              style={{ fontFamily: headingFont || "Inter" }}
             >
               The quick brown fox
             </h3>
@@ -60,8 +56,8 @@ const FontSection = () => {
         <div className="space-y-4">
           <label className="block text-accent font-semibold">Body Font</label>
           <select
-            value={bodyFont}
-            onChange={(e) => setBodyFont(e.target.value)}
+            value={bodyFont || "Inter"}
+            onChange={(e) => onBodyChange(e.target.value)}
             className="w-full p-4 rounded-lg bg-white focus:outline-none text-sm md:text-base"
           >
             {fonts.map((font) => (
@@ -72,7 +68,7 @@ const FontSection = () => {
           </select>
 
           <div className="bg-white p-6 rounded-lg">
-            <h3 className="text-accent" style={{ fontFamily: bodyFont }}>
+            <h3 className="text-accent" style={{ fontFamily: bodyFont || "Inter" }}>
               The quick brown fox jumps over the lazy dog
             </h3>
           </div>

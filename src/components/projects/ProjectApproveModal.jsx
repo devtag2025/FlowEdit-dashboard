@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { X, Star } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogClose,
@@ -11,56 +11,31 @@ import {
 } from "@/components/ui/dialog";
 import { DialogPortal } from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
-<<<<<<< Updated upstream:src/components/projects/ProjectApprovePopup.jsx
-import { Textarea } from "@/components/ui/textarea";
-import ProjectSuccessPopup from "./ProjectSuccessPopup";
-
-const StarRating = ({ value, onChange }) => {
-  return (
-    <div className="flex gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          onClick={() => onChange(star)}
-          className={`w-6 h-6 md:w-10 md:h-10 mt-2 cursor-pointer transition duration-300
-            ${star <= value ? "fill-primary text-primary  hover:scale-110 " : "text-primary/60 hover:text-primary/40"}
-          `}
-        />
-      ))}
-    </div>
-  );
-};
-
-const ProjectApprovePopup = ({ isOpen, onClose, onApprovalComplete }) => {
-  const [quality, setQuality] = useState(0);
-  const [speed, setSpeed] = useState(0);
-  const [feedback, setFeedback] = useState("");
-=======
 import ProjectSuccessModal from "./ProjectSuccessModal";
 
 const ProjectApproveModal = ({ isOpen, onClose, onApprovalComplete }) => {
   const [isApproving, setIsApproving] = useState(false);
->>>>>>> Stashed changes:src/components/projects/ProjectApproveModal.jsx
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const isDisabled = quality === 0 || speed === 0 || !feedback.trim();
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setShowSuccess(true);
+  const handleApprove = async () => {
+    setIsApproving(true);
+    try {
+      if (onApprovalComplete) await onApprovalComplete();
+      setShowSuccess(true);
+    } catch (err) {
+      console.error("Failed to approve:", err);
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   const handleClose = () => {
     onClose();
-    setQuality(0);
-    setSpeed(0);
-    setFeedback("");
   };
 
   const handleFinalDone = () => {
     setShowSuccess(false);
     handleClose();
-    if (onApprovalComplete) onApprovalComplete();
   };
 
   const handleJustCloseSuccess = () => {
@@ -72,20 +47,20 @@ const ProjectApproveModal = ({ isOpen, onClose, onApprovalComplete }) => {
     <Dialog
       open={isOpen}
       onOpenChange={(open) => {
-        if (!open) handleClose();
+        if (!open && !isApproving) handleClose();
       }}
     >
       <DialogPortal>
         <DialogContent
           className="
-            w-full max-w-[95vw] sm:max-w-xl max-h-[90vh] 
-            rounded-4xl bg-tertiary p-0 overflow-y-auto overscroll-contain scroll-smooth no-scrollbar
+            w-full max-w-[95vw] sm:max-w-md
+            rounded-2xl bg-tertiary p-0
           "
         >
-          <DialogHeader className="bg-tertiary border-primary/20 p-10 pb-4 top-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
             <div className="relative">
-              <DialogTitle className="text-slate-900 md:text-2xl text-left font-bold">
-                Rate and Approve
+              <DialogTitle className="text-slate-900 md:text-xl text-left font-bold">
+                Approve Project
               </DialogTitle>
 
               <DialogClose asChild>
@@ -97,52 +72,36 @@ const ProjectApproveModal = ({ isOpen, onClose, onApprovalComplete }) => {
                 </button>
               </DialogClose>
             </div>
-            <DialogDescription className="text-md text-gray-400 text-left">
-              Rate and approve project for delivery. Project will be added to
-              your cloud storage folder.
+            <DialogDescription className="text-sm text-gray-500 text-left mt-1">
+              Are you sure you want to approve this project? The final video will
+              be added to your cloud storage folder.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-5">
-            <div className="space-y-1">
-              <label className="text-sm md:text-base font-bold text-gray-700">
-                Quality <span className="text-red-500">*</span>
-              </label>
-              <StarRating value={quality} onChange={setQuality} />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm md:text-base font-bold text-gray-700">
-                Speed <span className="text-red-500">*</span>
-              </label>
-              <StarRating value={speed} onChange={setSpeed} />
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm md:text-base font-bold text-gray-700">
-                Feedback <span className="text-red-500">*</span>
-              </label>
-              <Textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Share any notes or thoughts about this project..."
-                className="resize-none h-28 text-xs md:text-base mt-3 text-slate-700"
-              />
-            </div>
-
+          <div className="px-6 pb-6 flex gap-3">
             <Button
-              type="submit"
-              disabled={isDisabled}
-              className={`w-full rounded-xl py-6 text-base font-semibold transition
-                ${
-                  isDisabled
-                    ? "bg-primary text-white cursor-not-allowed"
-                    : "bg-primary/90 hover:bg-primary hover:shadow-lg text-white cursor-pointer"
-                }`}
+              variant="outline"
+              onClick={handleClose}
+              disabled={isApproving}
+              className="flex-1 rounded-xl py-5 text-sm font-semibold border-primary text-primary hover:bg-primary hover:text-white cursor-pointer transition-colors"
             >
-              Approve
+              Cancel
             </Button>
-          </form>
+            <Button
+              onClick={handleApprove}
+              disabled={isApproving}
+              className="flex-1 rounded-xl py-5 text-sm font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer"
+            >
+              {isApproving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Approving...
+                </>
+              ) : (
+                "Approve"
+              )}
+            </Button>
+          </div>
 
           <ProjectSuccessModal
             isOpen={showSuccess}

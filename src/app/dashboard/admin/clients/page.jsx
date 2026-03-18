@@ -2,12 +2,12 @@
 import { useState } from "react";
 import EmptyClientDetail from "@/components/clients/EmptyClient";
 import ClientDetail from "@/components/clients/ClientDetail";
-import { clients, filters } from "@/utils/clientpage";
+import { clients, filters } from "@/data/clientpage";
 import { Search, Eye, MessageSquare, MoreVertical, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/Dashboard/StatusBadge";
+import { ActionButton } from "@/components/dashboard/StatusBadge";
 
 export default function Page() {
   const [activeFilter, setActiveFilter] = useState('All');

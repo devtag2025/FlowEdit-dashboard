@@ -3,9 +3,9 @@ import AccessTools from "@/components/resources/AccessTools";
 import LearningCatalog from "@/components/resources/LearningCatalog";
 import OnboardingSteps from "@/components/resources/OnboardingSteps";
 import Policies from "@/components/resources/Policies";
-import TabNavigation from "@/components/resources/TabNavigation";
+import TabNavigation from "@/components/common/TabNavigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { onboardingSteps } from "@/utils/resource";
+import { onboardingSteps } from "@/data/resource";
 import React, { useState } from "react";
 
 const Resources = () => {
@@ -21,7 +21,16 @@ const Resources = () => {
         </CardContent>
       </Card>
 
-      <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
+      <TabNavigation
+        tabs={[
+          { label: "Access & Tools", value: "access" },
+          { label: "Learning Catalog", value: "catalog" },
+          { label: "Policies", value: "policy" },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        buttonClassName="text-xs"
+      />
 
       {activeTab === "access" && <AccessTools />}
       {activeTab === "catalog" && <LearningCatalog />}

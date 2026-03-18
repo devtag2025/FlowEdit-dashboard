@@ -3,7 +3,7 @@ import CTA from "@/components/service/CTA";
 import Invoice from "@/components/service/Invoice";
 import PaymentDetail from "@/components/service/PaymentDetail";
 import PlanCards from "@/components/service/PlanCards";
-import TabNavigation from "@/components/service/TabNavigation";
+import TabNavigation from "@/components/common/TabNavigation";
 import { useState } from "react";
 
 export default function ServicePage() {
@@ -20,7 +20,17 @@ export default function ServicePage() {
           </p>
         </header>
 
-        <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
+        <TabNavigation
+          tabs={[
+            { label: "Overview", value: "overview" },
+            { label: "Invoices", value: "invoices" },
+            { label: "Payment", value: "payment" },
+          ]}
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          containerClassName="border border-tertiary md:bg-tertiary w-5xl"
+          buttonClassName="text-accent text-lg font-semibold md:px-6"
+        />
 
         {activeTab === "overview" && <PlanCards />}
         {activeTab === "invoices" && <Invoice />}

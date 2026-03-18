@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { DialogPortal } from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
+<<<<<<< Updated upstream:src/components/projects/ProjectApprovePopup.jsx
 import { Textarea } from "@/components/ui/textarea";
 import ProjectSuccessPopup from "./ProjectSuccessPopup";
 
@@ -34,6 +35,12 @@ const ProjectApprovePopup = ({ isOpen, onClose, onApprovalComplete }) => {
   const [quality, setQuality] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [feedback, setFeedback] = useState("");
+=======
+import ProjectSuccessModal from "./ProjectSuccessModal";
+
+const ProjectApproveModal = ({ isOpen, onClose, onApprovalComplete }) => {
+  const [isApproving, setIsApproving] = useState(false);
+>>>>>>> Stashed changes:src/components/projects/ProjectApproveModal.jsx
   const [showSuccess, setShowSuccess] = useState(false);
 
   const isDisabled = quality === 0 || speed === 0 || !feedback.trim();
@@ -137,7 +144,7 @@ const ProjectApprovePopup = ({ isOpen, onClose, onApprovalComplete }) => {
             </Button>
           </form>
 
-          <ProjectSuccessPopup
+          <ProjectSuccessModal
             isOpen={showSuccess}
             onClose={handleJustCloseSuccess}
             onDone={handleFinalDone}
@@ -148,4 +155,4 @@ const ProjectApprovePopup = ({ isOpen, onClose, onApprovalComplete }) => {
   );
 };
 
-export default ProjectApprovePopup;
+export default ProjectApproveModal;

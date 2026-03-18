@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 "use client";
 
 import EmptyNotification from "@/components/notification/EmptyNotification";
@@ -169,5 +170,8 @@ const NotificationPage = () => {
     </main>
   );
 };
+=======
+import NotificationPage from "@/components/notification/NotificationPage";
+>>>>>>> Stashed changes
 
 export default NotificationPage;

@@ -2,13 +2,19 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+<<<<<<< Updated upstream
 import { Plus, Search, Edit, Download, MessageCircle } from "lucide-react";
 import { stats, filters, projects } from "@/utils/dashboard-client";
 import StatCard from "@/components/Dashboard/StatCard";
+=======
+import { Plus, Search, Eye } from "lucide-react";
+import { Activity, Clock, CheckCircle } from "lucide-react";
+import StatCard from "@/components/dashboard/StatCard";
+>>>>>>> Stashed changes
 import { Input } from "@/components/ui/input";
-import { StatusBadge, ActionButton } from "@/components/Dashboard/StatusBadge";
-import FilterButton from "@/components/Dashboard/FilterButton";
-import NewProjectRequestModal from "@/components/Dashboard/NewProjectModal/Modal";
+import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
+import FilterButton from "@/components/dashboard/FilterButton";
+import NewProjectRequestModal from "@/components/dashboard/NewProjectModal/NewProjectModal";
 import {
   Select,
   SelectContent,

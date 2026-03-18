@@ -55,27 +55,58 @@ export default function DashboardLayout({ children }) {
   const [unreadCount, setUnreadCount] = useState(3);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [userId, setUserId] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
 
   const role = pathname.split("/")[2]; // "client" | "admin" | "contractor"
   const navigation = navigationConfig[role] || navigationConfig.client;
 
+  // Fetch profile once on mount + subscribe to realtime notifications
   useEffect(() => {
-    const fetchProfile = async () => {
+    let channel;
+    const init = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        setUserId(user.id);
         const { data: profile } = await supabase
           .from("profiles")
           .select("name, avatar_url")
           .eq("id", user.id)
           .single();
         setUserProfile(profile);
-        console.log("profile",profile)
+        getUnreadCount(user.id).then(setUnreadCount).catch(() => setUnreadCount(0));
+
+        // Subscribe to new notifications for this user
+        channel = supabase
+          .channel("notifications-bell")
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+            () => {
+              setUnreadCount((prev) => prev + 1);
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+            () => {
+              // Re-fetch count when notifications are marked as read
+              getUnreadCount(user.id).then(setUnreadCount).catch(() => setUnreadCount(0));
+            }
+          )
+          .subscribe();
       }
     };
-    fetchProfile();
+    init();
+
+    return () => {
+      if (channel) {
+        const supabase = createClient();
+        supabase.removeChannel(channel);
+      }
+    };
   }, []);
 
   useEffect(() => {

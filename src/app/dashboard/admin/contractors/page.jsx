@@ -2,7 +2,7 @@
 import { useState } from "react";
 import EmptyContractorDetail from "@/components/contractors/EmptyContractor";
 import ContractorDetail from "@/components/contractors/ContractorDetail";
-import { contractors, filters } from "@/utils/contractorpage";
+import { contractors, filters } from "@/data/contractorpage";
 import {
   Search,
   Eye,
@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/Dashboard/StatusBadge";
+import { ActionButton } from "@/components/dashboard/StatusBadge";
 
 export default function ContractorsPage() {
   const [activeFilter, setActiveFilter] = useState("All");

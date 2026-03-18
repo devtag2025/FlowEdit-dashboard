@@ -9,7 +9,7 @@ import {
 } from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 
-const ProjectSuccessPopup = ({ isOpen, onClose, onDone }) => {
+const ProjectSuccessModal = ({ isOpen, onClose, onDone }) => {
   return (
     <Dialog
       open={isOpen}
@@ -51,4 +51,4 @@ const ProjectSuccessPopup = ({ isOpen, onClose, onDone }) => {
   );
 };
 
-export default ProjectSuccessPopup;
+export default ProjectSuccessModal;

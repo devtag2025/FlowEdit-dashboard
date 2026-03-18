@@ -9,11 +9,15 @@ import {
   Eye,
   MoreVertical,
 } from "lucide-react";
+<<<<<<< Updated upstream
 import { stats, filters, projects } from "@/utils/dashboard-admin";
 import StatCard from "@/components/Dashboard/StatCard";
+=======
+import StatCard from "@/components/dashboard/StatCard";
+>>>>>>> Stashed changes
 import { Input } from "@/components/ui/input";
-import { StatusBadge, ActionButton } from "@/components/Dashboard/StatusBadge";
-import FilterButton from "@/components/Dashboard/FilterButton";
+import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
+import FilterButton from "@/components/dashboard/FilterButton";
 import {
   Select,
   SelectContent,
@@ -23,6 +27,20 @@ import {
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
 import Loader from "@/components/common/Loader";
+<<<<<<< Updated upstream
+=======
+import {
+  fetchAllProjects,
+  fetchUserProfile,
+  fetchContractors,
+  assignContractor,
+  markPosted,
+} from "@/lib/queries/projects";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import AssignContractorModal from "@/components/dashboard/AssignContractorModal";
+import MarkPostedModal from "@/components/dashboard/MarkPostedModal";
+import { notifyProjectEvent } from "@/lib/queries/notifications";
+>>>>>>> Stashed changes
 
 const Dashboard = () => {
   const router = useRouter();

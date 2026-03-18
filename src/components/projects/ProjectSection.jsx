@@ -2,7 +2,13 @@
 import React, { useState } from "react";
 import { Play, ArrowLeft, MoveRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+<<<<<<< Updated upstream
 import { Badge } from "@/components/ui/badge";
+=======
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/dashboard/StatusBadge";
+>>>>>>> Stashed changes
 import ProjectDetails from "./ProjectDetails";
 import { Card, CardContent } from "../ui/card";
 import { projects as clientProjects } from "@/utils/dashboard-client";
@@ -17,7 +23,13 @@ const projectsByRole = {
   contractor: contractorProjects,
 };
 import ProjectComments from "./ProjectComments";
+<<<<<<< Updated upstream
 import ProjectApprovePopup from "./ProjectApprovePopup";
+=======
+import ProjectApproveModal from "./ProjectApproveModal";
+import VersionHistory from "./VersionHistory";
+import UploadVersionModal from "./UploadVersionModal";
+>>>>>>> Stashed changes
 import {
   Tooltip,
   TooltipContent,
@@ -190,6 +202,72 @@ function ProjectSection({ projectId }) {
           <ProjectComments />
         </div>
       </CardContent>
+<<<<<<< Updated upstream
+=======
+
+      {/* Client: Approve Popup */}
+      <ProjectApproveModal
+        isOpen={isApproveOpen}
+        onClose={() => setIsApproveOpen(false)}
+        onApprovalComplete={handleApprovalComplete}
+      />
+
+      {/* Contractor: Upload Version Modal */}
+      <UploadVersionModal
+        isOpen={isUploadOpen}
+        setIsOpen={setIsUploadOpen}
+        projectId={projectId}
+        uploaderId={profile?.id}
+        onVersionCreated={reloadProject}
+      />
+
+      {/* Client: Revision Reason Modal */}
+      <Dialog open={isRevisionOpen} onOpenChange={(open) => { if (!open && !isRevising) { setIsRevisionOpen(false); setRevisionReason(""); } }}>
+        <DialogContent showCloseButton={false} className="w-full max-w-[95vw] sm:max-w-md rounded-2xl bg-tertiary p-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="relative">
+              <DialogTitle className="text-slate-900 md:text-xl text-left font-bold">
+                Request Revision
+              </DialogTitle>
+              <DialogClose asChild>
+                <button className="absolute right-0 top-0 rounded-md text-accent/60 hover:text-accent transition cursor-pointer" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogClose>
+            </div>
+            <DialogDescription className="text-sm text-gray-500 text-left mt-1">
+              Let the editor know what needs to be changed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-6 pb-6 space-y-4">
+            <Textarea
+              placeholder="Describe what changes you'd like..."
+              value={revisionReason}
+              onChange={(e) => setRevisionReason(e.target.value)}
+              className="bg-white border-accent/20 text-accent placeholder:text-accent/40 resize-none min-h-[100px]"
+            />
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setIsRevisionOpen(false); setRevisionReason(""); }}
+                disabled={isRevising}
+                className="flex-1 rounded-xl py-5 text-sm font-semibold border-primary text-primary hover:bg-primary hover:text-white cursor-pointer transition-colors"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRevise}
+                disabled={!revisionReason.trim() || isRevising}
+                className="flex-1 rounded-xl py-5 text-sm font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer disabled:opacity-50"
+              >
+                {isRevising ? "Submitting..." : "Submit Revision Request"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+>>>>>>> Stashed changes
     </Card>
   );
 }

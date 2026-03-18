@@ -1,6 +1,6 @@
 import React from "react";
 import { Card, CardContent } from "../ui/card";
-import { Acesses, tools } from "@/utils/resource";
+import { Acesses, tools } from "@/data/resource";
 import { StatusBadge } from "./StatusBadges";
 
 const AccessTools = () => {

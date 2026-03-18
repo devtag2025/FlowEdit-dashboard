@@ -2,7 +2,7 @@
 import { useState } from "react";
 import EmptyBroadcastDetail from "@/components/broadcasts/EmptyBroadcast";
 import BroadcastDetail from "@/components/broadcasts/BroadcastsDetail";
-import { broadcasts, filters } from "@/utils/broadcastpage";
+import { broadcasts, filters } from "@/data/broadcastpage";
 import { Plus, Search, Eye, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";

@@ -1,9 +1,25 @@
 "use client";
+<<<<<<< Updated upstream
 import { Eye, MessageSquare, EllipsisVertical } from "lucide-react";
 import { stats, projects } from "@/utils/dashboard-contractor";
 import StatCard from "@/components/Dashboard/StatCard";
 import { StatusBadge, ActionButton } from "@/components/Dashboard/StatusBadge";
 import { Card, CardContent } from "@/components/ui/card";
+=======
+import React, { useState, useEffect, useCallback } from "react";
+import { Eye, Search, Activity, Clock, CheckCircle } from "lucide-react";
+import StatCard from "@/components/dashboard/StatCard";
+import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
+import { Input } from "@/components/ui/input";
+import FilterButton from "@/components/dashboard/FilterButton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+>>>>>>> Stashed changes
 import { useRouter } from "next/navigation";
 import Loader from "@/components/common/Loader";
 import { useState } from "react";

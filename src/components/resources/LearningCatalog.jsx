@@ -3,7 +3,7 @@
 import { useState } from "react";
 import EmptyCatalog from "./EmptyCatalog";
 import CatalogSidebar from "./CatalogSidebar";
-import { catalogData } from "@/utils/catalog";
+import { catalogData } from "@/data/catalog";
 import VideoCard from "../common/VideoCard";
 
 const tabs = [

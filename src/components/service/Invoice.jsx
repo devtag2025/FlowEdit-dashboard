@@ -4,7 +4,7 @@ import {
   downloadAllInvoices,
   downloadInvoice,
   getInvoices,
-} from "@/services/service";
+} from "@/data/invoices";
 import { useEffect, useState } from "react";
 import Loader from "../common/Loader";
 

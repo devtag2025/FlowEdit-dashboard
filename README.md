@@ -11,125 +11,114 @@ npm run dev
 
 ---
 
-## What's Been Built
+## Module Roadmap (from Implementation.txt)
 
-### Module 1: Authentication
-- Google OAuth with Supabase (PKCE flow)
-- Role-based redirect after login — reads `profiles.role` and sends to `/dashboard/client`, `/admin`, or `/contractor`
-- Middleware protects all `/dashboard/*` routes
-- Files: `src/middleware.js`, `src/app/auth/callback/route.js`, `src/app/login/page.jsx`, `src/lib/supabase/client.js`, `src/lib/supabase/server.js`
+| Module | Description | Status |
+|--------|------------|--------|
+| Module 1: Database Schema | All Supabase tables, RLS policies, triggers | Done |
+| Module 2: Stripe Integration + Subscription Gating | Checkout, webhooks, plan gating | **TODO** |
+| Module 3: Project Workflow | Full project lifecycle (create → assign → review → post) | Done |
+| Module 3.5: Branding Integration | Client brand kit with file uploads | Done |
+| Module 4: Notifications | Event-driven notifications + Supabase Realtime | Done |
+| Module 5: Admin Features | Broadcasts, client/contractor management, social tracking | **TODO** |
+| Module 6: Contractor Features | Earnings, contracts, resources/onboarding | **TODO** |
+| Module 7: Stripe Payouts (Contractor) | Stripe Connect for contractor payouts | **TODO** |
 
-### Module 2: Project Workflow (Core Feature)
-Full project lifecycle is working end-to-end with Supabase:
+See `Implementation.txt`, `ClientRequirements.txt`, and `DatabaseSchema.txt` in `D:\Projects\FlowEdit\` for full details.
 
-```
-Client creates project → Admin assigns contractor → Contractor uploads video version
-→ Client reviews (approve or request revision) → Admin marks ready to post → Admin marks posted
-```
+---
 
-- Multi-step project creation modal with file uploads to Supabase Storage
+## What's Done (Modules 1, 3, 3.5, 4)
+
+### Module 1: Database Schema
+- All 11 Supabase tables created with RLS policies and triggers
+- Tables in use: `profiles`, `projects`, `project_comments`, `project_versions`, `notifications`, `client_branding`
+- Tables created but not connected yet: `social_platforms`, `broadcasts`, `broadcast_recipients`, `contractor_payments`, `contractor_documents`, `onboarding_steps`
+
+### Module 3: Project Workflow
+- Full lifecycle working end-to-end with Supabase
+- Multi-step project creation modal with file uploads
 - Project detail page shared across all 3 roles (different actions per role)
-- Comments system with real-time data
-- Version history with video file uploads
-- All queries: `src/lib/queries/projects.js`
-- UI: `src/components/projects/ProjectSection.jsx` (main project detail page)
+- Comments system, version history with video uploads
+- Queries: `src/lib/queries/projects.js`
 
-### Module 3: Client Branding
-- Full brand kit management: logos, colors, fonts, brand voice (TipTap rich text), graphic assets, guidelines
+### Module 3.5: Branding Integration
+- Client brand kit: logos, colors, fonts, brand voice (TipTap), graphic assets, guidelines
 - File uploads to Supabase Storage
 - Queries: `src/lib/queries/branding.js`
-- Page: `src/app/dashboard/client/branding/page.jsx`
 
 ### Module 4: Notifications
-- Event-driven — every project status change triggers notifications to the right people:
-  - Project created → admins
-  - Contractor assigned → client
-  - Assigned to you → contractor
-  - Submitted for review → client
-  - Revision requested → contractor
-  - Project approved → contractor + admins
-  - Ready to post → admins
-  - Posted → client + contractor
-  - New comment → other participants
-- **Supabase Realtime** on the bell icon (live unread count) and on the notification page (live list)
-- Mark as read (single click + mark all)
-- One shared `NotificationPage` component used by all 3 roles
+- Every project status change triggers notifications to the right users
+- Supabase Realtime on bell icon (live count) and notification page (live list)
+- Mark as read (single + bulk)
+- Shared `NotificationPage` component for all 3 roles
 - Queries: `src/lib/queries/notifications.js`
-- Realtime subscription: `src/app/dashboard/layout.jsx` (lines 84–101)
-- Shared page: `src/components/notification/NotificationPage.jsx`
 
-> **RLS note**: The INSERT policy on `notifications` uses `WITH CHECK (true)` so any user can create notifications for other users. The `createBulkNotifications` function does NOT call `.select()` after `.insert()` — this is intentional to avoid triggering the SELECT policy on cross-user rows.
-
-> **Realtime**: The `notifications` table has Realtime enabled in Supabase Dashboard → Database → Replication.
-
-### Codebase Refactoring
-- Merged 3 separate repos (client, admin, contractor) into one role-based dashboard
-- Standardized folder casing to lowercase (`components/dashboard/`, `settings/`, `social/`)
-- Moved mock data from `src/utils/` → `src/data/`
-- Consolidated 3 duplicate `TabNavigation` components into one shared `src/components/common/TabNavigation.jsx`
-- Consolidated 3 duplicate notification pages into one shared component
-- Renamed `Popup` → `Modal` across components (`ProjectApproveModal`, `ProjectSuccessModal`)
-- Removed dead code (`ProjectPopUp/` directory, empty test files)
+### Also Done: Codebase Refactoring
+- Merged 3 separate repos into one role-based dashboard
+- Standardized folder casing to lowercase
+- Consolidated duplicate components (TabNavigation, notification pages)
+- Cleaned up dead code and renamed Popup → Modal
 
 ---
 
-## What's Left (for you)
+## What You Need to Build (Modules 2, 5, 6, 7)
 
-### Module 5: Stripe Payments & Subscriptions (NOT STARTED)
-**This is the main thing you need to build.** No Stripe dependency exists in the project yet.
+### Module 2: Stripe Integration + Subscription Gating
 
-**What needs to happen:**
-- Stripe subscription checkout (3 plans: Starter, Pro, Elite)
-- Stripe webhook to sync subscription status to Supabase
-- Gate project creation behind active subscription — `canSubmitProject` in `src/app/dashboard/client/page.jsx` (line 139) is hardcoded `true` right now
-- Invoice history — currently mock data in `src/data/invoices.js`
-- Contractor earnings/payouts tracking
+The `profiles` table already has these columns ready:
 
-**Pages that are waiting for Stripe:**
-- `src/app/dashboard/client/service/page.jsx` — has 3 tabs (Overview, Invoices, Payment) but components are shells
-- `src/app/dashboard/contractor/earnings/page.jsx` — has 2 tabs (Payouts, Wallet) but components are shells
+```
+subscription_status   — none / active / canceled / past_due (default: 'none')
+subscription_plan     — launch / starter / pro / agency
+stripe_customer_id    — Stripe customer ID
+```
 
-**Suggested file structure:**
-- `src/lib/stripe/` — Stripe helpers
-- `src/app/api/webhooks/stripe/route.js` — Webhook endpoint
-- Store subscription status in Supabase `profiles` table or a new `subscriptions` table
+**What to do:**
+1. Install `stripe` and `@stripe/stripe-js`, create Stripe client in `src/lib/stripe/`
+2. Create 3 subscription products/prices in Stripe Dashboard (Starter, Pro, Agency)
+3. Build checkout flow — client picks a plan → server creates Stripe Checkout Session → redirect to Stripe → on success come back to `/dashboard/client/service`. The marketing site (`Flowedit-Site/`) pricing page should also point to this
+4. Build webhook at `src/app/api/webhooks/stripe/route.js` — listen for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` and sync status to `profiles`
+5. Plan gating — the RLS policy on `projects` already blocks inserts if subscription isn't active. On the frontend, `canSubmitProject` in `src/app/dashboard/client/page.jsx` (line 139) is hardcoded `true` — change it to check the actual subscription status
+6. Wire up `src/app/dashboard/client/service/page.jsx` — has 3 tabs (Overview, Invoices, Payment) but content components are empty shells. Replace mock invoice data from `src/data/invoices.js` with Stripe API
 
-### Other Pages Still on Mock Data
-These pages have UI built but use static/mock data from `src/data/`. They need Supabase queries:
+### Module 5: Admin Features
 
-| Page | File | Mock Data Source |
-|------|------|-----------------|
-| Admin → Clients list | `src/app/dashboard/admin/clients/page.jsx` | `src/data/clientpage.js` |
-| Admin → Contractors list | `src/app/dashboard/admin/contractors/page.jsx` | `src/data/contractorpage.js` |
-| Admin → Broadcasts | `src/app/dashboard/admin/broadcasts/page.jsx` | `src/data/broadcastpage.js` |
-| Contractor → Resources | `src/app/dashboard/contractor/resources/page.jsx` | `src/data/resource.js` |
-| Contractor → Contracts | `src/app/dashboard/contractor/contracts/page.jsx` | Static text |
+These pages have UI built but use mock data from `src/data/`. The DB tables and RLS policies already exist.
 
-### Profile Pages (UI done, no save)
-All 3 profile pages (`client/profile`, `admin/profile`, `contractor/profile`) have the form UI but submit handlers just call `alert()`. Need to connect to Supabase `profiles` table + `supabase.auth.updateUser()` for password changes.
+- **Broadcasts** (`src/app/dashboard/admin/broadcasts/page.jsx`) — mock data from `src/data/broadcastpage.js`, needs to connect to `broadcasts` + `broadcast_recipients` tables
+- **Client management** (`src/app/dashboard/admin/clients/page.jsx`) — mock data from `src/data/clientpage.js`, needs to query `profiles` where role=client, show subscription info, project counts
+- **Contractor management** (`src/app/dashboard/admin/contractors/page.jsx`) — mock data from `src/data/contractorpage.js`, needs to query `profiles` where role=contractor, show assignment history
+- **Social platform tracking** (`src/app/dashboard/client/social/page.jsx`) — static data from `src/data/social.js`, needs to connect to `social_platforms` table (manual tracking only, no OAuth in v1)
 
-### Social Page (intentionally deferred)
-`src/app/dashboard/client/social/page.jsx` — v1 is manual posting only, no OAuth. This is by design.
+### Module 6: Contractor Features
 
----
+Same situation — UI exists, mock data, DB tables ready.
 
-## Supabase Tables
+- **Earnings** (`src/app/dashboard/contractor/earnings/page.jsx`) — has 2 tabs (Payouts, Wallet) but empty shells, needs to connect to `contractor_payments` table
+- **Contracts** (`src/app/dashboard/contractor/contracts/page.jsx`) — static placeholder text, needs to connect to `contractor_documents` table (type=contract)
+- **Resources/Onboarding** (`src/app/dashboard/contractor/resources/page.jsx`) — mock data from `src/data/resource.js`, needs to connect to `onboarding_steps` + `contractor_documents` tables
 
-| Table           | Purpose                                    |
-| --------------- | ------------------------------------------ |
-| `profiles`      | User info, role, avatar_url                |
-| `projects`      | Project CRUD + status workflow             |
-| `comments`      | Project comments (joined with profiles)    |
-| `versions`      | Video version uploads per project          |
-| `notifications` | Notification system (Realtime enabled)     |
-| `branding`      | Client brand kits + file references        |
+### Module 7: Stripe Payouts (Contractor)
+
+The `profiles` table has a `stripe_connect_id` column and there's a `contractor_payments` table ready.
+
+- Contractor links their Stripe Connect account during onboarding → save `stripe_connect_id`
+- Admin creates payment records, process via Stripe Connect transfers
+- Show payout history on the earnings page (from Module 6)
 
 ---
 
-## Conventions to Follow
+### Also Remaining: Profile Pages
 
-- All queries go in `src/lib/queries/` — don't put Supabase calls directly in components
+All 3 profile pages (`client/profile`, `admin/profile`, `contractor/profile`) have form UI but submit handlers just call `alert()`. Need to connect to `profiles` table + `supabase.auth.updateUser()` for password changes.
+
+---
+
+## Conventions
+
+- Queries go in `src/lib/queries/` — no Supabase calls directly in components
 - Component folders are **lowercase** (`dashboard/`, not `Dashboard/`)
-- Modal components use `*Modal` suffix (not Popup)
-- Use `notifyProjectEvent()` from `src/lib/queries/notifications.js` for any new project events
-- Mock data lives in `src/data/` — replace with real queries as you build out each page
+- Modals use `*Modal` suffix (not Popup)
+- Use `notifyProjectEvent()` for project events, `createNotification()` for other events (billing, broadcasts)
+- Mock data in `src/data/` — replace with real queries as pages get connected

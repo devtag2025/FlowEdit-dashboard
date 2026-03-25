@@ -1,24 +1,44 @@
 import { Download, FileText } from "lucide-react";
 import { Button } from "../common/Button";
-import {
-  downloadAllInvoices,
-  downloadInvoice,
-  getInvoices,
-} from "@/data/invoices";
+import { fetchStripeInvoices } from "@/lib/queries/billing";
 import { useEffect, useState } from "react";
 import Loader from "../common/Loader";
 
-const Invoice = () => {
+const Invoice = ({ customerId }) => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
+      if (!customerId) {
+        setError("Stripe customer ID is required to load invoices.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const data = await getInvoices();
-        setInvoices(data);
+        const data = await fetchStripeInvoices(customerId);
+        setInvoices(
+          Array.isArray(data)
+            ? data.map((item) => ({
+                id: item.id || item.number || "--",
+                plan: item.lines?.data?.[0]?.plan?.nickname || item.subscription_plan || "Unknown",
+                date: item.created
+                  ? new Date(item.created * 1000).toLocaleDateString()
+                  : item.date || "--",
+                amount: item.amount_paid
+                  ? `$${(item.amount_paid / 100).toFixed(2)}`
+                  : item.total
+                  ? `$${(item.total / 100).toFixed(2)}`
+                  : "$0.00",
+                status: item.status || "unknown",
+              }))
+            : []
+        );
       } catch (err) {
         console.error(err);
+        setError("Unable to load invoices. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -28,6 +48,10 @@ const Invoice = () => {
   }, []);
 
   if (loading) return <Loader />;
+
+  if (error) {
+    return <p className="text-red-600 text-sm">{error}</p>;
+  }
 
   return (
     <section className="max-w-5xl mx-auto overflow-hidden md:rounded-3xl">
@@ -42,7 +66,7 @@ const Invoice = () => {
         </div>
 
         <Button
-          onClick={() => downloadAllInvoices()}
+          onClick={() => alert("Download all invoices not yet implemented")}
           className="hidden md:flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow text-sm font-medium text-accent hover:bg-gray-300"
         >
           <Download size={16} />
@@ -83,7 +107,7 @@ const Invoice = () => {
 
             <div className="flex">
               <Button
-                onClick={() => downloadInvoice(invoice)}
+                onClick={() => alert(`Download invoice ${invoice.id} not yet implemented`)}
                 className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 hover:bg-white"
               >
                 <Download size={16} className="text-accent" />
@@ -118,7 +142,7 @@ const Invoice = () => {
               </div>
 
               <Button
-                onClick={() => downloadInvoice(invoice)}
+                onClick={() => alert(`Download invoice ${invoice.id} not yet implemented`)}
                 className="flex items-center justify-center gap-2 bg-white px-2 py-2 rounded-lg shadow font-medium text-accent text-xs"
               >
                 <Download size={14} />

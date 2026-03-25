@@ -45,12 +45,11 @@ const PlanCard = ({ plan }) => {
       </ul>
 
       <Button
+        onClick={plan.onClick}
+        disabled={plan.buttonDisabled}
         className={`rounded-lg py-2 transition
-          ${
-            plan.highlighted
-              ? "bg-tertiary text-slate-400 shadow-xl"
-              : "bg-white text-accent"
-          }`}
+          ${plan.highlighted ? "bg-tertiary text-slate-400 shadow-xl" : "bg-white text-accent"}
+          ${plan.buttonDisabled ? "opacity-50 cursor-not-allowed" : "hover:bg-slate-100"}`}
       >
         {plan.buttonText}
       </Button>

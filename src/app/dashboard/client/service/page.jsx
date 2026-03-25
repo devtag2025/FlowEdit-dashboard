@@ -4,11 +4,36 @@ import Invoice from "@/components/service/Invoice";
 import PaymentDetail from "@/components/service/PaymentDetail";
 import PlanCards from "@/components/service/PlanCards";
 import TabNavigation from "@/components/common/TabNavigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchUserProfile } from "@/lib/queries/projects";
 
 export default function ServicePage() {
   const [activeTab, setActiveTab] = useState("overview");
-  return (
+  const [profile, setProfile] = useState(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const userProfile = await fetchUserProfile();
+        setProfile(userProfile);
+      } catch (error) {
+        console.error("Failed to fetch user profile", error);
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  if (isLoadingProfile) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
     <>
       <main className="min-h-screen bg-secondary px-3 md:px-8 py-5 pb-4">
         <header className="mb-10">
@@ -32,9 +57,9 @@ export default function ServicePage() {
           buttonClassName="text-accent text-lg font-semibold md:px-6"
         />
 
-        {activeTab === "overview" && <PlanCards />}
-        {activeTab === "invoices" && <Invoice />}
-        {activeTab === "payment" && <PaymentDetail />}
+        {activeTab === "overview" && <PlanCards profile={profile} />}
+        {activeTab === "invoices" && <Invoice customerId={profile?.stripe_customer_id} />}
+        {activeTab === "payment" && <PaymentDetail profile={profile} />}
 
         <CTA />
       </main>

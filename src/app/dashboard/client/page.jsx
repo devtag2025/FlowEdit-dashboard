@@ -136,7 +136,7 @@ const Dashboard = () => {
 
   const stats = computeStats(projects);
 
-  const canSubmitProject = true;
+  const canSubmitProject = profile?.subscription_status === "active";
 
   if (isLoading) {
     return (

@@ -3,7 +3,7 @@ import { Button } from "../common/Button";
 import { useState } from "react";
 import BillingEditModal from "./EditModal/EditModal";
 
-const PaymentDetail = () => {
+const PaymentDetail = ({ profile }) => {
   const [billing, setBilling] = useState({
     companyName: "Acme Inc.",
     billingEmail: "billing@acme.com",
@@ -14,6 +14,20 @@ const PaymentDetail = () => {
   return (
     <>
       <section className="max-w-5xl mx-auto bg-tertiary rounded-lg md:rounded-3xl p-3 md:p-6 mb-8 text-accent">
+        {profile && (
+          <div className="border border-slate-300 rounded-xl bg-white p-4 mb-5 text-left text-sm text-slate-700">
+            <p>
+              <span className="font-semibold">Subscription:</span> {profile.subscription_plan || "launch"}
+            </p>
+            <p>
+              <span className="font-semibold">Status:</span> {profile.subscription_status || "none"}
+            </p>
+            <p>
+              <span className="font-semibold">Customer ID:</span> {profile.stripe_customer_id || "not set"}
+            </p>
+          </div>
+        )}
+
         <div className="space-y-6 ">
           <div>
             <h3 className="text-lg font-semibold mb-1">Payment Methods</h3>

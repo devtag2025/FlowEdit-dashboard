@@ -1,14 +1,14 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2022-11-15",
+const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY, {
+  apiVersion: "2026-03-25.dahlia",
 });
 
 const PRICE_MAP = {
-  starter: process.env.STRIPE_PRICE_STARTER,
-  pro: process.env.STRIPE_PRICE_PRO,
-  agency: process.env.STRIPE_PRICE_AGENCY,
+  starter: process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER,
+  pro: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO,
+  agency: process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY,
 };
 
 export async function POST(request) {

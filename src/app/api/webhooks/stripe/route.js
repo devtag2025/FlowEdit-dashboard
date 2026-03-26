@@ -2,20 +2,20 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY, {
   apiVersion: "2022-11-15",
 });
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY
 );
 
 const planForPrice = (priceId) => {
   if (!priceId) return "launch";
-  if (priceId === process.env.STRIPE_PRICE_STARTER) return "starter";
-  if (priceId === process.env.STRIPE_PRICE_PRO) return "pro";
-  if (priceId === process.env.STRIPE_PRICE_AGENCY) return "agency";
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER) return "starter";
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO) return "pro";
+  if (priceId === process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY) return "agency";
   return "launch";
 };
 

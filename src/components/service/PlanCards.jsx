@@ -48,21 +48,35 @@ const PlanCards = ({ profile }) => {
   ];
 
   const handleSubscribe = async (plan) => {
-    if (!profile?.id) return;
+    if (!profile?.id) {
+      alert("Please sign in before upgrading your plan.");
+      return;
+    }
 
     try {
       setLoadingPlan(plan);
-      const { id: sessionId, url } = await createCheckoutSession(plan, profile.id, profile.stripe_customer_id);
-      const stripe = await getStripe();
+      const payload = await createCheckoutSession(plan, profile.id, profile.stripe_customer_id);
+      const url = payload?.url;
+      const sessionId = payload?.id;
 
-      if (stripe && sessionId) {
-        await stripe.redirectToCheckout({ sessionId });
-      } else if (url) {
+      if (url) {
         window.location.href = url;
+        return;
+      }
+
+      if (!sessionId) {
+        throw new Error("Checkout session did not return a URL or session ID.");
+      }
+
+      const stripe = await getStripe();
+      const result = await stripe.redirectToCheckout({ sessionId });
+
+      if (result?.error) {
+        throw new Error(result.error.message);
       }
     } catch (err) {
       console.error("Failed to start checkout", err);
-      alert("Checkout initialization failed. Please try again.");
+      alert(`Checkout initialization failed: ${err?.message ?? err}`);
     } finally {
       setLoadingPlan(null);
     }

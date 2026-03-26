@@ -34,6 +34,8 @@ export default function ServicePage() {
       </div>
     );
   }
+
+  return (
     <>
       <main className="min-h-screen bg-secondary px-3 md:px-8 py-5 pb-4">
         <header className="mb-10">

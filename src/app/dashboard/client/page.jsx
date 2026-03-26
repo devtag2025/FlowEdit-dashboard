@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Plus, Search, Eye } from "lucide-react";
 import { Activity, Clock, CheckCircle } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
+import StatCard from "@/components/Dashboard/StatCard";
 import { Input } from "@/components/ui/input";
-import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
-import FilterButton from "@/components/dashboard/FilterButton";
-import NewProjectRequestModal from "@/components/dashboard/NewProjectModal/NewProjectModal";
+import { StatusBadge,ActionButton } from "@/components/Dashboard/StatusBadge";
+import FilterButton from "@/components/Dashboard/FilterButton";
+import NewProjectRequestModal from "@/components/Dashboard/NewProjectModal/NewProjectModal";
 import {
   Select,
   SelectContent,

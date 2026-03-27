@@ -252,7 +252,6 @@ export async function fetchVersions(projectId) {
 }
 
 export async function createVersion(projectId, { video_url, notes, uploaded_by }) {
-  // Get next version number
   const { data: existing } = await supabase
     .from("project_versions")
     .select("version_number")
@@ -313,22 +312,110 @@ export async function fetchAdminStats() {
   return { total, active, uniqueClients, uniqueContractors };
 }
 
-// ─── PROFILE: Fetch user profile ───
+// ─── PROFILE: Fetch user profile ─────────────────────────────────────────────
+//
+// The tricky case: user pays on the landing page (Stripe webhook creates a
+// profile row keyed by email with a random UUID), THEN logs in via Google
+// (Supabase auth trigger creates ANOTHER profile row keyed by the auth UUID
+// with no subscription data).
+//
+// Resolution order:
+//   1. Find profile by auth UUID → if it already has subscription data, done.
+//   2. If not, look for a second row with the same email that HAS subscription
+//      data (the webhook-created orphan), merge it into the auth row, delete
+//      the orphan.
+//   3. Fallback: look up by email only (first login, auth trigger hasn't run).
+
 export async function fetchUserProfile() {
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
   if (authError || !user) return null;
 
-  const { data, error } = await supabase
+  // ── 1. Normal lookup by auth UUID ─────────────────────────────────────────
+  const { data: profileById } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
-  if (error) {
-    console.error("Failed to fetch profile:", error);
-    return null;
-  }
-  if (!data) return null;
+  if (profileById) {
+    // Profile exists — check if subscription data is missing (webhook orphan
+    // may have the real data under a different UUID for the same email)
+    const hasSubscription =
+      profileById.subscription_plan &&
+      profileById.subscription_plan !== "launch" &&
+      profileById.subscription_plan !== null;
 
-  return { ...data, auth_id: user.id };
+    if (!hasSubscription && user.email) {
+      // Look for a webhook-created row with same email but different id
+      const { data: orphan } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("email", user.email)
+        .neq("id", user.id)
+        .not("subscription_plan", "is", null)
+        .maybeSingle();
+
+      if (orphan) {
+        // Merge subscription fields from the orphan into the auth row
+        const mergePayload = {
+          subscription_status: orphan.subscription_status,
+          subscription_plan:   orphan.subscription_plan,
+          stripe_customer_id:  orphan.stripe_customer_id,
+        };
+
+        const { error: mergeError } = await supabase
+          .from("profiles")
+          .update(mergePayload)
+          .eq("id", user.id);
+
+        if (!mergeError) {
+          // Clean up the orphan row now that data is on the auth row
+          await supabase.from("profiles").delete().eq("id", orphan.id);
+
+          return { ...profileById, ...mergePayload, auth_id: user.id };
+        }
+      }
+    }
+
+    return { ...profileById, auth_id: user.id };
+  }
+
+  // ── 2. Fallback: look up by email (webhook row, before first Google login) ─
+  if (user.email) {
+    const { data: profileByEmail } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", user.email)
+      .maybeSingle();
+
+    if (profileByEmail) {
+      // Try to update the row's id to match the auth UUID so future lookups
+      // hit path 1. If the id column can't be updated (PK constraint), upsert
+      // a new row and delete the old one.
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ id: user.id })
+        .eq("id", profileByEmail.id);
+
+      if (updateError) {
+        // PK update not allowed — insert a new row and delete the orphan
+        await supabase
+          .from("profiles")
+          .upsert({ ...profileByEmail, id: user.id });
+
+        await supabase
+          .from("profiles")
+          .delete()
+          .eq("id", profileByEmail.id);
+      }
+
+      return { ...profileByEmail, id: user.id, auth_id: user.id };
+    }
+  }
+
+  return null;
 }

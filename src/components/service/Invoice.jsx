@@ -1,5 +1,7 @@
+"use client";
+
 import { Download, FileText } from "lucide-react";
-import { Button } from "../common/Button";
+import { Button } from "./../common/Button";
 import { fetchStripeInvoices } from "@/lib/queries/billing";
 import { useEffect, useState } from "react";
 import Loader from "../common/Loader";
@@ -12,27 +14,29 @@ const Invoice = ({ customerId }) => {
   useEffect(() => {
     const fetchInvoices = async () => {
       if (!customerId) {
-        setError("Stripe customer ID is required to load invoices.");
+        setError("No billing account found. Complete a checkout to see invoices.");
         setLoading(false);
         return;
       }
-
       try {
+        setLoading(true);
+        setError(null);
         const data = await fetchStripeInvoices(customerId);
         setInvoices(
           Array.isArray(data)
             ? data.map((item) => ({
-                id: item.id || item.number || "--",
-                plan: item.lines?.data?.[0]?.plan?.nickname || item.subscription_plan || "Unknown",
-                date: item.created
-                  ? new Date(item.created * 1000).toLocaleDateString()
-                  : item.date || "--",
-                amount: item.amount_paid
-                  ? `$${(item.amount_paid / 100).toFixed(2)}`
-                  : item.total
-                  ? `$${(item.total / 100).toFixed(2)}`
-                  : "$0.00",
-                status: item.status || "unknown",
+                id:          item.number || item.id || "--",
+                plan:        item.subscription_plan || "Unknown",
+                date:        item.created
+                               ? new Date(item.created * 1000).toLocaleDateString()
+                               : "--",
+                amount:      item.amount_paid
+                               ? `$${(item.amount_paid / 100).toFixed(2)}`
+                               : item.total
+                               ? `$${(item.total / 100).toFixed(2)}`
+                               : "$0.00",
+                status:      item.status || "unknown",
+                downloadUrl: item.hosted_invoice_url || null,
               }))
             : []
         );
@@ -45,109 +49,155 @@ const Invoice = ({ customerId }) => {
     };
 
     fetchInvoices();
-  }, []);
+  }, [customerId]);
 
   if (loading) return <Loader />;
 
   if (error) {
-    return <p className="text-red-600 text-sm">{error}</p>;
+    return (
+      <div className="max-w-5xl mx-auto mt-8 rounded-2xl bg-tertiary p-8 text-center">
+        <p className="text-accent/60 text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  if (invoices.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto mt-8 rounded-2xl bg-tertiary p-8 text-center">
+        <p className="text-accent/60 text-sm">No invoices found.</p>
+      </div>
+    );
   }
 
   return (
-    <section className="max-w-5xl mx-auto overflow-hidden md:rounded-3xl">
-      <div className="flex flex-col items-center md:gap-2 p-2 md:flex-row md:items-center md:justify-between md:p-8 md:bg-tertiary">
+    <section className="max-w-5xl mx-auto overflow-hidden md:rounded-3xl mt-4">
+
+      {/* Header */}
+      <div className="flex flex-col gap-2 p-4 md:flex-row md:items-center md:justify-between md:p-8 md:bg-tertiary">
         <div>
-          <h2 className="text-center md:text-left text-accent text-xl font-bold md:text-2xl md:font-semibold mb-2">
+          <h2 className="text-accent text-xl font-bold md:text-2xl mb-1">
             Billing History
           </h2>
-          <p className="text-slate-600 text-sm md:text-base text-center md:text-left">
+          <p className="text-slate-600 text-sm md:text-base">
             Download previous invoices and receipts.
           </p>
         </div>
-
-        <Button
-          onClick={() => alert("Download all invoices not yet implemented")}
-          className="hidden md:flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow text-sm font-medium text-accent hover:bg-gray-300"
-        >
+        <Button className="hidden md:flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow text-sm font-medium text-accent hover:bg-gray-300 shrink-0">
           <Download size={16} />
           Download All
         </Button>
       </div>
 
-      <div className="hidden md:grid grid-cols-6 px-6 py-4 text-xs font-semibold uppercase text-slate-600 bg-white">
-        <span>Invoice</span>
-        <span>Plan</span>
-        <span>Date</span>
-        <span>Amount</span>
-        <span>Status</span>
-        <span>Action</span>
-      </div>
-
-      {/* Desktop */}
-      <div className="bg-tertiary hidden md:block">
-        {invoices.map((invoice) => (
-          <div
-            key={invoice.id}
-            className="grid grid-cols-6 items-center px-5 py-6 font-medium text-accent border-slate-300 border-b-2 hover:bg-gray-300"
-          >
-            <div className="flex gap-3 items-center">
-              <FileText size={16} className="text-slate-800" />
-              <span>{invoice.id}</span>
-            </div>
-
-            <span>{invoice.plan}</span>
-            <span>{invoice.date}</span>
-            <span>{invoice.amount}</span>
-
-            <span>
-              <span className="inline-flex items-center px-3 py-1 text-xs font-semibold text-green-500 bg-green-100 rounded-full">
-                {invoice.status}
-              </span>
-            </span>
-
-            <div className="flex">
-              <Button
-                onClick={() => alert(`Download invoice ${invoice.id} not yet implemented`)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 hover:bg-white"
+      {/* Desktop table — use a real table for proper column alignment */}
+      <div className="hidden md:block bg-tertiary overflow-x-auto">
+        <table className="w-full min-w-[600px] border-collapse">
+          <thead>
+            <tr className="bg-white">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[30%]">Invoice</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[20%]">Plan</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[15%]">Date</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[15%]">Amount</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[12%]">Status</th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase text-slate-600 w-[8%]">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.map((invoice) => (
+              <tr
+                key={invoice.id}
+                className="border-b border-slate-200 hover:bg-slate-100 transition-colors"
               >
-                <Download size={16} className="text-accent" />
-              </Button>
-            </div>
-          </div>
-        ))}
+                <td className="px-4 py-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText size={14} className="text-slate-500 shrink-0" />
+                    <span className="text-sm font-medium text-accent truncate">
+                      {invoice.id}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-sm text-accent capitalize truncate block">
+                    {invoice.plan}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-sm text-accent whitespace-nowrap">
+                    {invoice.date}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="text-sm font-semibold text-accent whitespace-nowrap">
+                    {invoice.amount}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  <span className="inline-flex items-center px-2 py-1 text-xs font-semibold text-green-600 bg-green-100 rounded-full whitespace-nowrap capitalize">
+                    {invoice.status}
+                  </span>
+                </td>
+                <td className="px-4 py-4">
+                  {invoice.downloadUrl ? (
+                    <a
+                      href={invoice.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 hover:bg-white transition-colors"
+                    >
+                      <Download size={14} className="text-accent" />
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 opacity-40 cursor-not-allowed"
+                    >
+                      <Download size={14} className="text-accent" />
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Mobile */}
-      <div className="md:hidden space-y-3">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3 p-2">
         {invoices.map((invoice) => (
           <div
             key={invoice.id}
-            className="bg-tertiary rounded-lg p-3 shadow-sm flex flex-col gap-3"
+            className="bg-tertiary rounded-xl p-4 shadow-sm space-y-3"
           >
-            <div className="flex justify-between gap-3">
-              <div className="flex items-center text-accent gap-2">
-                <FileText size={16} />
-                <p className="font-semibold text-accent">{invoice.id}</p>
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText size={14} className="text-slate-500 shrink-0" />
+                <p className="text-sm font-semibold text-accent truncate">{invoice.id}</p>
               </div>
-              <p className="font-semibold text-accent">{invoice.amount}</p>
+              <p className="text-sm font-bold text-accent whitespace-nowrap shrink-0">
+                {invoice.amount}
+              </p>
             </div>
 
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-slate-500">{invoice.date}</p>
-
-                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-green-600 bg-green-100 rounded-full">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs text-slate-500">{invoice.date}</span>
+                <span className="text-xs text-slate-500 capitalize">{invoice.plan}</span>
+                <span className="inline-block px-2 py-0.5 text-xs font-semibold text-green-600 bg-green-100 rounded-full capitalize">
                   {invoice.status}
                 </span>
               </div>
-
-              <Button
-                onClick={() => alert(`Download invoice ${invoice.id} not yet implemented`)}
-                className="flex items-center justify-center gap-2 bg-white px-2 py-2 rounded-lg shadow font-medium text-accent text-xs"
-              >
-                <Download size={14} />
-                Download
-              </Button>
+              {invoice.downloadUrl ? (
+                <a
+                  href={invoice.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow text-xs font-medium text-accent shrink-0"
+                >
+                  <Download size={12} />
+                  Download
+                </a>
+              ) : (
+                <span className="text-xs text-slate-400">No download</span>
+              )}
             </div>
           </div>
         ))}

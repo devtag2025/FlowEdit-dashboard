@@ -8,24 +8,18 @@ import { useState } from "react";
 const PlanCards = ({ profile }) => {
   const [loadingPlan, setLoadingPlan] = useState(null);
 
+  const planOrder = { starter: 1, pro: 2, agency: 3 };
+  const currentPlanRaw = profile?.subscription_plan ? profile.subscription_plan.toLowerCase() : null;
+  const currentPlan = currentPlanRaw !== "launch" ? currentPlanRaw : null;
+  const currentOrder = currentPlan ? planOrder[currentPlan] || null : null;
+
   const plans = [
-    {
-      key: "launch",
-      title: "Launch",
-      price: "$ 0",
-      description: "Get started for free.",
-      features: ["1 video per month", "72h Turnaround", "Basic stock footage", "No revisions"],
-      buttonText: "Select Launch",
-      highlighted: !profile?.subscription_plan || profile?.subscription_plan === "launch",
-    },
     {
       key: "starter",
       title: "Starter",
       price: "$ 499",
       description: "Perfect for individuals.",
       features: ["2 videos per month", "48h Turnaround", "Stock Footage included", "1 Revision round"],
-      buttonText: "Upgrade to Starter",
-      highlighted: profile?.subscription_plan === "starter",
     },
     {
       key: "pro",
@@ -33,8 +27,6 @@ const PlanCards = ({ profile }) => {
       price: "$ 999",
       description: "Great for growing brands.",
       features: ["8 videos per month", "24h Turnaround", "Premium Stock Assets", "Unlimited Revisions", "Dedicated Editor"],
-      buttonText: "Upgrade to Pro",
-      highlighted: profile?.subscription_plan === "pro",
     },
     {
       key: "agency",
@@ -42,8 +34,6 @@ const PlanCards = ({ profile }) => {
       price: "$ 2499",
       description: "For high-volume teams.",
       features: ["20 videos per month", "Priority Support", "Custom Motion Graphics", "Stack Integration", "White-labeling"],
-      buttonText: "Upgrade to Agency",
-      highlighted: profile?.subscription_plan === "agency",
     },
   ];
 
@@ -95,18 +85,40 @@ const PlanCards = ({ profile }) => {
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1 max-w-5xl mx-auto my-6">
-        {plans.map((plan) => (
-          <PlanCard
-            key={plan.key}
-            plan={{
-              ...plan,
-              buttonText:
-                profile?.subscription_plan === plan.key ? "Current Plan" : plan.buttonText,
-              buttonDisabled: profile?.subscription_plan === plan.key || loadingPlan,
-              onClick: () => handleSubscribe(plan.key),
-            }}
-          />
-        ))}
+        {plans.map((plan) => {
+          const planLevel = planOrder[plan.key];
+          const isCurrent = plan.key === currentPlan;
+          const isUpgradeable = planLevel > currentOrder;
+          const isDowngrade = planLevel < currentOrder;
+          const planStatus = profile?.subscription_status || "none";
+
+          let buttonText = "Select Plan";
+          let buttonDisabled = false;
+
+          if (isCurrent) {
+            buttonText = "Current Plan";
+            buttonDisabled = true;
+          } else if (planStatus !== "active") {
+            buttonText = "Activate via Checkout";
+          } else if (isUpgradeable) {
+            buttonText = `Upgrade to ${plan.title}`;
+          } else if (isDowngrade) {
+            buttonText = `Downgrade to ${plan.title}`;
+          }
+
+          return (
+            <PlanCard
+              key={plan.key}
+              plan={{
+                ...plan,
+                highlighted: isCurrent,
+                buttonText,
+                buttonDisabled: buttonDisabled || loadingPlan,
+                onClick: () => handleSubscribe(plan.key),
+              }}
+            />
+          );
+        })}
       </div>
     </>
   );

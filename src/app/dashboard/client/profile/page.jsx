@@ -2,9 +2,9 @@
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { SettingsInput } from "@/components/settings/SettingsInput";
-import { SettingsToggle } from "@/components/settings/SettingsToggle";
-import { SettingsSection } from "@/components/settings/SettingsSection";
+import { SettingsInput } from "@/components/Settings/SettingsInput";
+import { SettingsToggle } from "@/components/Settings/SettingsToggle";
+import { SettingsSection } from "@/components/Settings/SettingsSection";
 import Image from "next/image";
 import { NotebookPenIcon } from "lucide-react";
 

@@ -1,128 +1,174 @@
-import { CreditCard, Pencil, Plus, Trash2 } from "lucide-react";
+"use client";
+
+import { CreditCard, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "../common/Button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import BillingEditModal from "./EditModal/EditModal";
 
 const PaymentDetail = ({ profile }) => {
   const [billing, setBilling] = useState({
-    companyName: "Acme Inc.",
-    billingEmail: "billing@acme.com",
-    address: "123 Market Street",
-    city: "San Francisco, CA 94105",
+    companyName:  "",
+    billingEmail: "",
+    address:      "",
+    city:         "",
   });
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [loadingPayment, setLoadingPayment] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Fill from profile — webhook wrote address/city there at checkout time
+  useEffect(() => {
+    if (profile) {
+      setBilling({
+        companyName:  profile.name    || "",
+        billingEmail: profile.email   || "",
+        address:      profile.address || "",
+        city:         profile.city    || "",
+      });
+    }
+  }, [profile]);
+
+  // Fetch payment methods — only API call needed
+  useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      if (!profile?.stripe_customer_id) return;
+      try {
+        setLoadingPayment(true);
+        const res = await fetch(
+          `/api/stripe/payment-methods?customer_id=${profile.stripe_customer_id}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch payment methods");
+        const data = await res.json();
+        setPaymentMethods(data || []);
+      } catch (err) {
+        console.error("Payment methods fetch error:", err);
+      } finally {
+        setLoadingPayment(false);
+      }
+    };
+    fetchPaymentMethods();
+  }, [profile?.stripe_customer_id]);
+
   return (
     <>
-      <section className="max-w-5xl mx-auto bg-tertiary rounded-lg md:rounded-3xl p-3 md:p-6 mb-8 text-accent">
+      {/* Payment Methods */}
+      <section className="max-w-5xl mx-auto bg-tertiary rounded-lg md:rounded-3xl p-4 md:p-6 mb-6 text-accent">
         {profile && (
-          <div className="border border-slate-300 rounded-xl bg-white p-4 mb-5 text-left text-sm text-slate-700">
-            <p>
-              <span className="font-semibold">Subscription:</span> {profile.subscription_plan || "launch"}
+          <div className="border border-slate-300 rounded-xl bg-white p-4 mb-5 text-sm text-slate-700 space-y-1 overflow-hidden">
+            <p className="flex gap-2 flex-wrap">
+              <span className="font-semibold shrink-0">Subscription:</span>
+              <span className="break-all">{profile.subscription_plan || "None"}</span>
             </p>
-            <p>
-              <span className="font-semibold">Status:</span> {profile.subscription_status || "none"}
+            <p className="flex gap-2 flex-wrap">
+              <span className="font-semibold shrink-0">Status:</span>
+              <span>{profile.subscription_status || "none"}</span>
             </p>
-            <p>
-              <span className="font-semibold">Customer ID:</span> {profile.stripe_customer_id || "not set"}
+            <p className="flex gap-2 flex-wrap">
+              <span className="font-semibold shrink-0">Customer ID:</span>
+              <span className="break-all text-xs">{profile.stripe_customer_id || "not set"}</span>
             </p>
           </div>
         )}
 
-        <div className="space-y-6 ">
+        <div className="space-y-4">
           <div>
             <h3 className="text-lg font-semibold mb-1">Payment Methods</h3>
-            <p className="text-slate-600 text-sm md:text-base">
+            <p className="text-slate-600 text-sm">
               Manage your credit cards and billing preferences.
             </p>
           </div>
 
-          <div className="flex flex-col gap-4 md:gap-0 md:flex-row md:items-center md:justify-between bg-white rounded-lg md:rounded-2xl p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 flex items-center justify-center rounded-lg shadow-xl">
-                <CreditCard className="text-blue-700" />
-              </div>
-
-              <div>
-                <h3 className="font-medium text-sm md:text-base mb-1">
-                  Visa ending in 4242
-                </h3>
-                <p className="text-sm text-slate-500">Expires 12/25</p>
-              </div>
+          {loadingPayment ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin text-primary w-6 h-6" />
             </div>
-
-            <div className="flex items-center gap-3">
-              <span className="text-slate-600 font-medium px-3 py-1 rounded-lg bg-slate-200 text-xs md:text-sm">
-                Default
-              </span>
-
-              <Button className="w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-lg border md:border-2 border-slate-300 hover:bg-gray-300">
-                <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              </Button>
+          ) : paymentMethods.length > 0 ? (
+            <div className="space-y-3">
+              {paymentMethods.map((pm) => (
+                <div
+                  key={pm.id}
+                  className="flex items-center justify-between gap-3 bg-white rounded-2xl p-4 flex-wrap"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 flex items-center justify-center rounded-lg shadow shrink-0">
+                      <CreditCard className="text-blue-700 w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm capitalize truncate">
+                        {pm.brand} ending in {pm.last4}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Expires {pm.exp_month}/{pm.exp_year}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {pm.isDefault && (
+                      <span className="text-slate-600 font-medium px-2 py-1 rounded-lg bg-slate-200 text-xs">
+                        Default
+                      </span>
+                    )}
+                    <button className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 hover:bg-gray-100 transition-colors">
+                      <Trash2 className="w-4 h-4 text-slate-500" />
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-2xl p-6 text-center text-slate-500 text-sm">
+              {profile?.stripe_customer_id
+                ? "No payment methods on file."
+                : "Complete a checkout to see your payment methods here."}
+            </div>
+          )}
 
-          <Button className="flex items-center justify-center w-full bg-white text-accent border md:border-2 border-dashed rounded-xl p-4 gap-2 border-slate-300  font-semibold hover:border-primary">
-            <Plus className="text-accent w-4 h-4 md:w-6 md:h-6" />
+          <button className="flex items-center justify-center w-full bg-white text-accent border-2 border-dashed rounded-xl p-4 gap-2 border-slate-300 font-semibold hover:border-primary transition-colors text-sm">
+            <Plus className="w-4 h-4" />
             Add New Payment Method
-          </Button>
+          </button>
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto bg-tertiary rounded-lg md:rounded-3xl p-6 text-accent">
-        <div className="flex items-center justify-between bg-tertiary mb-5 gap-2">
-          <div>
+      {/* Billing Address */}
+      <section className="max-w-5xl mx-auto bg-tertiary rounded-lg md:rounded-3xl p-4 md:p-6 text-accent">
+        <div className="flex items-start justify-between gap-3 mb-5">
+          <div className="min-w-0">
             <h3 className="text-lg font-semibold mb-1">Billing Address</h3>
-            <p className="text-slate-600 text-sm md:text-base">
+            <p className="text-slate-600 text-sm">
               This address appears on your monthly invoices.
             </p>
           </div>
-
-          <Button
+          <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center justify-center w-12 md:w-10 h-10 border md:border-2 border-slate-300 rounded-lg text-accent hover:bg-gray-300"
+            className="shrink-0 w-10 h-10 flex items-center justify-center border-2 border-slate-300 rounded-lg text-accent hover:bg-gray-200 transition-colors"
           >
             <Pencil className="w-4 h-4" />
-          </Button>
+          </button>
         </div>
 
         <BillingEditModal
           isOpen={isModalOpen}
           setIsOpen={setIsModalOpen}
           billing={billing}
+          onSave={(updated) => setBilling(updated)}
         />
 
-        <div className="grid grid-cols-2 md:grid-cols-4 md:bg-white md:p-6 rounded-2xl font-semibold gap-3 md:gap-4 text-accent">
-          <div>
-            <p className="text-accent text-xs md:text-base mb-1">
-              Company Name
-            </p>
-            <p className="text-slate-600 font-medium text-sm md:text-base">
-              {billing.companyName}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-accent text-xs md:text-base mb-1">
-              Billing Email
-            </p>
-            <p className="text-slate-600 font-medium text-sm md:text-base">
-              {billing.billingEmail}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-accent mb-1 text-xs md:text-base">Address</p>
-            <p className="text-slate-600 font-medium text-sm md:text-base">
-              {billing.address}
-            </p>
-          </div>
-
-          <div>
-            <p className="text-accent mb-1 text-xs md:text-base">City/State</p>
-            <p className="text-slate-600 font-medium text-sm md:text-base">
-              {billing.city}
-            </p>
-          </div>
+        {/* Grid — each cell handles long text with break-words */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 md:bg-white md:p-6 rounded-2xl">
+          {[
+            { label: "Company Name",  value: billing.companyName  },
+            { label: "Billing Email", value: billing.billingEmail },
+            { label: "Address",       value: billing.address      },
+            { label: "City / State",  value: billing.city         },
+          ].map(({ label, value }) => (
+            <div key={label} className="min-w-0">
+              <p className="text-xs md:text-sm text-accent/70 mb-1 font-medium">{label}</p>
+              <p className="text-sm font-semibold text-slate-700 break-words">
+                {value || "—"}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
     </>

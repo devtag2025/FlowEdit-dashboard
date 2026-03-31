@@ -1,25 +1,81 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import EmptyClientDetail from "@/components/clients/EmptyClient";
 import ClientDetail from "@/components/clients/ClientDetail";
-import { clients, filters } from "@/data/clientpage";
+import { fetchClients } from "@/lib/queries/clients";
 import { Search, Eye, MessageSquare, MoreVertical, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/dashboard/StatusBadge";
+import { ActionButton } from "@/components/Dashboard/StatusBadge";
+import Loader from "@/components/common/Loader";
+import { filters,AVATAR_COLORS } from "@/constants/admin/clients";
+
+function planColor(plan) {
+  if (!plan || plan === 'None' || plan === 'launch') return 'bg-slate-100 text-slate-600';
+  if (plan === 'agency')  return 'bg-yellow-100 text-yellow-700';
+  if (plan === 'pro')     return 'bg-primary/10 text-primary';
+  if (plan === 'starter') return 'bg-green-100 text-green-700';
+  return 'bg-slate-100 text-slate-600';
+}
+
+function formatTenure(dateStr) {
+  if (!dateStr) return '—';
+  const d      = new Date(dateStr);
+  const now    = new Date();
+  const months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
+  if (months < 1)  return 'This month';
+  if (months < 12) return `${months} month${months > 1 ? 's' : ''}`;
+  const years = Math.floor(months / 12);
+  const rem   = months % 12;
+  return rem > 0 ? `${years} year${years > 1 ? 's' : ''} ${rem} month${rem > 1 ? 's' : ''}` : `${years} year${years > 1 ? 's' : ''}`;
+}
+
+function deriveStatus(subscriptionStatus) {
+  if (subscriptionStatus === 'active')   return 'New';      // active = recently paying
+  if (subscriptionStatus === 'inactive') return 'Inactive';
+  if (subscriptionStatus === 'canceled') return 'Inactive';
+  return 'Inactive';
+}
 
 export default function Page() {
+  const [clients, setClients]           = useState([]);
+  const [loading, setLoading]           = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [searchQuery, setSearchQuery]   = useState('');
+  const [selectedClient, setSelectedClient]     = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchClients();
+      // Normalise DB rows into the shape the existing UI expects
+      setClients(
+        data.map((c, i) => ({
+          ...c,
+          // Fields the UI reads directly
+          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+          planColor:   planColor(c.plan),
+          tenure:      formatTenure(c.memberSince),
+          lastActivity: c.lastActivity || '—',
+          status:      deriveStatus(c.status),
+        }))
+      );
+    } catch (err) {
+      console.error('Failed to load clients:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
   const filteredClients = clients.filter((client) => {
-    const matchesFilter = activeFilter === 'All' || 
-      (activeFilter === 'New' && client.status === 'New') ||
+    const matchesFilter = activeFilter === 'All' ||
+      (activeFilter === 'New'      && client.status === 'New') ||
       (activeFilter === 'Inactive' && client.status === 'Inactive');
-    const matchesSearch = 
+    const matchesSearch =
       client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       client.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
@@ -34,6 +90,14 @@ export default function Page() {
     setSelectedClient(null);
     setMobileDetailOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-secondary p-4 md:p-8">
@@ -80,6 +144,7 @@ export default function Page() {
             </div>
           </div>
 
+          {/* Mobile cards */}
           <div className="lg:hidden space-y-4">
             {filteredClients.map((client) => (
               <div
@@ -90,16 +155,20 @@ export default function Page() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Avatar className={`w-12 h-12 ${client.avatarColor}`}>
-                      <AvatarFallback className="text-white font-bold">
-                        {client.initials}
-                      </AvatarFallback>
+                      {client.avatar_url ? (
+                        <img src={client.avatar_url} alt={client.name} className="object-cover w-full h-full rounded-full" />
+                      ) : (
+                        <AvatarFallback className="text-white font-bold">
+                          {client.initials}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     <div>
                       <p className="font-semibold text-accent">{client.name}</p>
                       <p className="text-sm text-accent/60">{client.email}</p>
                     </div>
                   </div>
-                  <Badge className={`${client.planColor} border-0 font-semibold`}>
+                  <Badge className={`${client.planColor} border-0 font-semibold capitalize`}>
                     {client.plan}
                   </Badge>
                 </div>
@@ -146,28 +215,17 @@ export default function Page() {
             )}
           </div>
 
+          {/* Desktop table */}
           <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-accent/10">
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Client
-                  </th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Plan
-                  </th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Tenure
-                  </th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Active Projects
-                  </th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Last Activity
-                  </th>
-                  <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">
-                    Actions
-                  </th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Client</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Plan</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Tenure</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Active Projects</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Last Activity</th>
+                  <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,9 +240,13 @@ export default function Page() {
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <Avatar className={`w-10 h-10 ${client.avatarColor}`}>
-                          <AvatarFallback className="text-white font-bold">
-                            {client.initials}
-                          </AvatarFallback>
+                          {client.avatar_url ? (
+                            <img src={client.avatar_url} alt={client.name} className="object-cover w-full h-full rounded-full" />
+                          ) : (
+                            <AvatarFallback className="text-white font-bold">
+                              {client.initials}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
                         <div>
                           <p className="font-semibold text-accent">{client.name}</p>
@@ -193,7 +255,7 @@ export default function Page() {
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge className={`${client.planColor} border-0 font-semibold`}>
+                      <Badge className={`${client.planColor} border-0 font-semibold capitalize`}>
                         {client.plan}
                       </Badge>
                     </td>
@@ -221,6 +283,7 @@ export default function Page() {
         </div>
       </div>
 
+      {/* Mobile detail sheet — identical to original */}
       <div
         className={`
           lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-t border-gray-200 rounded-t-3xl
@@ -240,14 +303,12 @@ export default function Page() {
         </div>
       </div>
 
-
       {mobileDetailOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/60 z-30"
           onClick={() => setMobileDetailOpen(false)}
         />
       )}
-
 
       {selectedClient && !mobileDetailOpen && (
         <button

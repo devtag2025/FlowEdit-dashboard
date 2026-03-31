@@ -2,14 +2,20 @@
 import { useState } from "react";
 import EmptyBroadcastDetail from "@/components/broadcasts/EmptyBroadcast";
 import BroadcastDetail from "@/components/broadcasts/BroadcastsDetail";
-import { broadcasts, filters } from "@/data/broadcastpage";
+import { createBroadcast } from "@/lib/queries/broadcast";
+import { useBroadcasts } from "@/hooks/admin/useBroadcast";
 import { Plus, Search, Eye, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import NewBroadcast from "@/components/broadcasts/NewBroadcast";
+import Loader from "@/components/common/Loader";
+import { filters, AUDIENCE_COLORS } from "@/constants/admin/broadcast";
 
 export default function BroadcastsPage() {
+  const { broadcasts, loading } = useBroadcasts();
+
+  const [creating, setCreating] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBroadcast, setSelectedBroadcast] = useState(null);
@@ -39,6 +45,7 @@ export default function BroadcastsPage() {
 
   const handleBroadcastSelect = (broadcast) => {
     setSelectedBroadcast(broadcast);
+    setNewBroadCast(false);
     setMobileDetailOpen(true);
   };
 
@@ -46,6 +53,28 @@ export default function BroadcastsPage() {
     setSelectedBroadcast(null);
     setMobileDetailOpen(false);
   };
+
+  const handleCreate = async ({ title, message, audience }) => {
+    try {
+      setCreating(true);
+      await createBroadcast({ title, message, audience });
+      setNewBroadCast(false);
+      setMobileDetailOpen(false);
+    } catch (err) {
+      console.error("Failed to create broadcast:", err);
+      alert("Failed to send broadcast. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-secondary p-4 md:p-8">
@@ -57,19 +86,21 @@ export default function BroadcastsPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* ── Left panel ── */}
           <div className="lg:col-span-4 space-y-4">
-            <div className="bg-tertiary rounded-3xl p-6 space-y-6">
-              <div className="flex items-center justify-between flex-col md:flex-row gap-2">
+            <div className="bg-tertiary rounded-3xl p-4 sm:p-6 space-y-6">
+              <div className="flex items-center justify-between flex-col sm:flex-row gap-2">
                 <h2 className="text-xl font-bold text-accent">Broadcasts</h2>
                 <Button
-                  className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-xl w-full md:w-fit"
-                  onClick={() => handleNewBroadCast()}
+                  className="bg-primary hover:bg-primary/90 text-white gap-2 rounded-xl w-full sm:w-fit"
+                  onClick={handleNewBroadCast}
                 >
                   <Plus className="w-4 h-4" />
                   New Broadcast
                 </Button>
               </div>
 
+              {/* Scheduled */}
               <div>
                 <h3 className="text-xs font-semibold text-accent/60 uppercase mb-3">
                   Scheduled
@@ -80,28 +111,33 @@ export default function BroadcastsPage() {
                       <div
                         key={broadcast.id}
                         onClick={() => handleBroadcastSelect(broadcast)}
-                        className={`bg-tertiary rounded-2xl p-4 cursor-pointer transition-all hover:shadow-md ${
+                        className={`bg-secondary rounded-2xl p-3 sm:p-4 cursor-pointer transition-all hover:shadow-md min-w-0 ${
                           selectedBroadcast?.id === broadcast.id
                             ? "ring-2 ring-primary"
                             : ""
                         }`}
                       >
-                        <h4 className="font-semibold text-accent mb-2">
+                        {/* Title — truncated with tooltip on hover */}
+                        <h4
+                          className="font-semibold text-accent mb-2 truncate text-sm sm:text-base"
+                          title={broadcast.title}
+                        >
                           {broadcast.title}
                         </h4>
-                        <div className="flex gap-2 mb-2">
+                        {/* Badges wrap instead of overflow */}
+                        <div className="flex flex-wrap gap-1.5 mb-2">
                           <Badge
-                            className={`${broadcast.audienceColor} border-0 text-xs`}
+                            className={`${broadcast.audienceColor} border-0 text-xs shrink-0`}
                           >
                             {broadcast.audience}
                           </Badge>
                           <Badge
-                            className={`${broadcast.priorityColor} border-0 text-xs`}
+                            className={`${broadcast.priorityColor} border-0 text-xs shrink-0`}
                           >
                             {broadcast.priority}
                           </Badge>
                         </div>
-                        <p className="text-xs text-accent/60">
+                        <p className="text-xs text-accent/60 truncate">
                           {broadcast.scheduledFor}
                         </p>
                       </div>
@@ -114,6 +150,7 @@ export default function BroadcastsPage() {
                 </div>
               </div>
 
+              {/* Sent */}
               <div>
                 <h3 className="text-xs font-semibold text-accent/60 uppercase mb-3">
                   Sent
@@ -124,34 +161,40 @@ export default function BroadcastsPage() {
                       <div
                         key={broadcast.id}
                         onClick={() => handleBroadcastSelect(broadcast)}
-                        className={`bg-tertiary rounded-2xl p-4 cursor-pointer transition-all hover:shadow-md ${
+                        className={`bg-tertiary rounded-2xl p-3 sm:p-4 cursor-pointer transition-all hover:shadow-md min-w-0 ${
                           selectedBroadcast?.id === broadcast.id
                             ? "ring-2 ring-primary"
                             : ""
                         }`}
                       >
-                        <h4 className="font-semibold text-accent mb-2">
+                        <h4
+                          className="font-semibold text-accent mb-2 truncate text-sm sm:text-base"
+                          title={broadcast.title}
+                        >
                           {broadcast.title}
                         </h4>
-                        <div className="flex gap-2 mb-2">
+                        <div className="flex flex-wrap gap-1.5 mb-2">
                           <Badge
-                            className={`${broadcast.audienceColor} border-0 text-xs`}
+                            className={`${broadcast.audienceColor} border-0 text-xs shrink-0`}
                           >
                             {broadcast.audience}
                           </Badge>
                           <Badge
-                            className={`${broadcast.priorityColor} border-0 text-xs`}
+                            className={`${broadcast.priorityColor} border-0 text-xs shrink-0`}
                           >
                             {broadcast.priority}
                           </Badge>
                         </div>
-                        <div className="flex items-center gap-3 text-xs text-accent/60">
-                          <span className="flex items-center gap-1">
+                        {/* Meta row — wraps on small screens */}
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-accent/60">
+                          <span className="flex items-center gap-1 shrink-0">
                             <Eye className="w-3 h-3" />
                             {broadcast.views} seen
                           </span>
-                          <span>•</span>
-                          <span>Sent {broadcast.sentAt}</span>
+                          <span className="shrink-0">•</span>
+                          <span className="shrink-0">
+                            Sent {broadcast.sentAt}
+                          </span>
                         </div>
                       </div>
                     ))
@@ -165,14 +208,21 @@ export default function BroadcastsPage() {
             </div>
           </div>
 
+          {/* ── Desktop right panel ── */}
           <div className="hidden lg:block lg:col-span-8">
             <div className="bg-tertiary rounded-3xl p-6 min-h-150">
               {newBroadCast ? (
-                <NewBroadcast onCancel={() => setNewBroadCast(false)} />
+                <NewBroadcast
+                  onCancel={() => setNewBroadCast(false)}
+                  onCreate={handleCreate}
+                  creating={creating}
+                />
               ) : selectedBroadcast ? (
                 <BroadcastDetail
                   broadcast={selectedBroadcast}
                   onBack={handleBackToList}
+                  onDeleted={() => handleBackToList()}
+                  onUpdated={() => {}}
                   activeFilter={activeFilter}
                   setActiveFilter={setActiveFilter}
                   sortOrder={sortOrder}
@@ -184,6 +234,7 @@ export default function BroadcastsPage() {
             </div>
           </div>
 
+          {/* ── Mobile list ── */}
           <div className="lg:hidden space-y-4">
             <div className="flex gap-2 overflow-x-auto pb-2">
               {filters.map((filter) => (
@@ -217,61 +268,68 @@ export default function BroadcastsPage() {
                 <div
                   key={broadcast.id}
                   onClick={() => handleBroadcastSelect(broadcast)}
-                  className="bg-tertiary rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                  className="bg-tertiary rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-shadow min-w-0"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-accent flex-1">
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    {/* title truncates — badge stays on same line with shrink-0 */}
+                    <h3
+                      className="font-semibold text-accent flex-1 truncate text-sm"
+                      title={broadcast.title}
+                    >
                       {broadcast.title}
                     </h3>
                     <Badge
-                      className={`${broadcast.priorityColor} border-0 text-xs ml-2`}
+                      className={`${broadcast.priorityColor} border-0 text-xs ml-2 shrink-0`}
                     >
                       {broadcast.priority}
                     </Badge>
                   </div>
 
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
                     <Badge
-                      className={`${broadcast.audienceColor} border-0 text-xs`}
+                      className={`${broadcast.audienceColor} border-0 text-xs shrink-0`}
                     >
                       {broadcast.audience}
                     </Badge>
                     {broadcast.status === "scheduled" ? (
-                      <span className="text-xs text-accent/60">
+                      <span className="text-xs text-accent/60 truncate">
                         {broadcast.scheduledFor}
                       </span>
                     ) : (
-                      <span className="text-xs text-accent/60 flex items-center gap-1">
+                      <span className="text-xs text-accent/60 flex items-center gap-1 shrink-0">
                         <Eye className="w-3 h-3" />
                         {broadcast.views} seen • Sent {broadcast.sentAt}
                       </span>
                     )}
                   </div>
 
-                  <p className="text-sm text-accent/70 line-clamp-2">
-                    {broadcast.content}
+                  {/* Preview — 2 line clamp prevents card height explosion */}
+                  <p className="text-sm text-accent/70 line-clamp-2 break-words">
+                    {broadcast.content?.replace(/<[^>]*>/g, "") || ""}
                   </p>
                 </div>
               ))}
-            </div>
 
-            {filteredBroadcasts.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 bg-tertiary rounded-2xl">
-                <Search className="w-6 h-6 text-accent/50 mb-2" />
-                <p className="text-accent/60 text-sm">No broadcasts found</p>
-              </div>
-            )}
+              {filteredBroadcasts.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-16 bg-tertiary rounded-2xl">
+                  <Search className="w-6 h-6 text-accent/50 mb-2" />
+                  <p className="text-accent/60 text-sm">No broadcasts found</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* ── Mobile detail sheet ── */}
       <div
-        className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-accent/10 rounded-t-3xl transition-transform duration-300 ease-out shadow-2xl h-[85vh] ${mobileDetailOpen ? "translate-y-0" : "translate-y-full"}`}
+        className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-accent/10 rounded-t-3xl transition-transform duration-300 ease-out shadow-2xl h-[85vh] ${
+          mobileDetailOpen ? "translate-y-0" : "translate-y-full"
+        }`}
       >
         <div className="flex justify-center py-2">
           <div className="w-12 h-1 bg-gray-300 rounded-full" />
         </div>
-
         <div className="h-[calc(85vh-24px)] overflow-y-auto overscroll-contain px-4 pb-6">
           {newBroadCast ? (
             <NewBroadcast
@@ -279,12 +337,19 @@ export default function BroadcastsPage() {
                 setNewBroadCast(false);
                 setMobileDetailOpen(false);
               }}
+              onCreate={handleCreate}
+              creating={creating}
             />
           ) : (
             selectedBroadcast && (
               <BroadcastDetail
                 broadcast={selectedBroadcast}
                 onBack={() => setMobileDetailOpen(false)}
+                onDeleted={() => {
+                  setMobileDetailOpen(false);
+                  setSelectedBroadcast(null);
+                }}
+                onUpdated={() => {}}
                 isMobile={true}
               />
             )

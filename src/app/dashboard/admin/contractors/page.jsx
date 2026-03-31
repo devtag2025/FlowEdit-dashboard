@@ -1,8 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import EmptyContractorDetail from "@/components/contractors/EmptyContractor";
 import ContractorDetail from "@/components/contractors/ContractorDetail";
-import { contractors, filters } from "@/data/contractorpage";
+import { fetchContractors } from "@/lib/queries/contractors";
 import {
   Search,
   Eye,
@@ -13,13 +13,46 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/dashboard/StatusBadge";
+import { ActionButton } from "@/components/Dashboard/StatusBadge";
+import Loader from "@/components/common/Loader";
+import { filters, AVATAR_COLORS } from "@/constants/admin/contractors";
+
+function statusColor(status) {
+  if (status === "Active") return "bg-green-100 text-green-700";
+  if (status === "New") return "bg-blue-100 text-blue-700";
+  if (status === "Inactive") return "bg-gray-100 text-gray-700";
+  return "bg-yellow-100 text-yellow-700";
+}
 
 export default function ContractorsPage() {
+  const [contractors, setContractors] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContractor, setSelectedContractor] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchContractors();
+      setContractors(
+        data.map((c, i) => ({
+          ...c,
+          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+          statusColor: statusColor(c.status),
+        })),
+      );
+    } catch (err) {
+      console.error("Failed to load contractors:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const filteredContractors = contractors.filter((contractor) => {
     const matchesFilter =
@@ -41,6 +74,14 @@ export default function ContractorsPage() {
     setSelectedContractor(null);
     setMobileDetailOpen(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-secondary p-4 md:p-8">
@@ -92,6 +133,7 @@ export default function ContractorsPage() {
             </div>
           </div>
 
+          {/* Mobile cards */}
           <div className="lg:hidden space-y-4">
             {filteredContractors.map((contractor) => (
               <div
@@ -102,9 +144,17 @@ export default function ContractorsPage() {
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <Avatar className={`w-12 h-12 ${contractor.avatarColor}`}>
-                      <AvatarFallback className="text-white font-bold">
-                        {contractor.initials}
-                      </AvatarFallback>
+                      {contractor.avatar_url ? (
+                        <img
+                          src={contractor.avatar_url}
+                          alt={contractor.name}
+                          className="object-cover w-full h-full rounded-full"
+                        />
+                      ) : (
+                        <AvatarFallback className="text-white font-bold">
+                          {contractor.initials}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     <div>
                       <p className="font-semibold text-accent">
@@ -175,6 +225,7 @@ export default function ContractorsPage() {
             )}
           </div>
 
+          {/* Desktop table */}
           <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
             <table className="w-full">
               <thead>
@@ -212,9 +263,17 @@ export default function ContractorsPage() {
                         <Avatar
                           className={`w-10 h-10 ${contractor.avatarColor}`}
                         >
-                          <AvatarFallback className="text-white font-bold">
-                            {contractor.initials}
-                          </AvatarFallback>
+                          {contractor.avatar_url ? (
+                            <img
+                              src={contractor.avatar_url}
+                              alt={contractor.name}
+                              className="object-cover w-full h-full rounded-full"
+                            />
+                          ) : (
+                            <AvatarFallback className="text-white font-bold">
+                              {contractor.initials}
+                            </AvatarFallback>
+                          )}
                         </Avatar>
                         <div>
                           <p className="font-semibold text-accent">
@@ -269,6 +328,7 @@ export default function ContractorsPage() {
         </div>
       </div>
 
+      {/* Mobile detail sheet — identical to original */}
       <div
         className={`
           lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-t border-gray-200 rounded-t-3xl

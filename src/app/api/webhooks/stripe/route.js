@@ -2,31 +2,24 @@ import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: process.env.STRIPE_API_VERSION || "2026-03-25.dahlia",
 });
 
+// Must use the JWT service_role key (starts with eyJ) — not the sb_secret_ key
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_SECRET_KEY,
-  
+  process.env.SUPABASE_SECRET_KEY
 );
+
 const planForPrice = (priceId) => {
   if (!priceId) return "launch";
-  const starter = process.env.STRIPE_PRICE_STARTER || process.env.NEXT_PUBLIC_STRIPE_PRICE_STARTER;
-  const pro     = process.env.STRIPE_PRICE_PRO     || process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO;
-  const agency  = process.env.STRIPE_PRICE_AGENCY  || process.env.NEXT_PUBLIC_STRIPE_PRICE_AGENCY;
-  if (priceId === starter) return "starter";
-  if (priceId === pro)     return "pro";
-  if (priceId === agency)  return "agency";
+  if (priceId === process.env.STRIPE_PRICE_STARTER) return "starter";
+  if (priceId === process.env.STRIPE_PRICE_PRO)     return "pro";
+  if (priceId === process.env.STRIPE_PRICE_AGENCY)  return "agency";
   return "launch";
 };
 
-/**
- * Fetch full customer details from Stripe so we can store
- * name, email, and billing address in the profiles table.
- * This avoids needing a second API call from the frontend.
- */
 async function getStripeCustomerDetails(customerId) {
   if (!customerId) return {};
   try {
@@ -35,38 +28,32 @@ async function getStripeCustomerDetails(customerId) {
       name:    customer.name  || null,
       email:   customer.email || null,
       address: customer.address?.line1
-                 ? [customer.address.line1, customer.address.line2]
-                     .filter(Boolean).join(", ")
-                 : null,
-      city:    [customer.address?.city, customer.address?.state]
-                 .filter(Boolean).join(", ") || null,
+        ? [customer.address.line1, customer.address.line2].filter(Boolean).join(", ")
+        : null,
+      city: [customer.address?.city, customer.address?.state].filter(Boolean).join(", ") || null,
     };
-  } catch {
+  } catch (e) {
+    console.error("[Webhook] getStripeCustomerDetails error:", e.message);
     return {};
   }
 }
 
 const updateProfileSubscription = async ({
-  customerId,
-  status,
-  plan,
-  email,
-  name,
-  includeAddress = false,  // only fetch address on checkout.session.completed
+  customerId, status, plan, email, name, includeAddress = false,
 }) => {
+  console.log("[Webhook] updateProfile:", { customerId, status, plan, email });
+
   if (!customerId && !email) {
-    console.warn("updateProfileSubscription called without customerId or email");
+    console.warn("[Webhook] no customerId or email — skipping");
     return;
   }
 
-  // Base subscription payload
   const payload = {
     subscription_status: status,
-    subscription_plan:   plan,
-    stripe_customer_id:  customerId,
+    ...(plan !== undefined && { subscription_plan: plan }),
+    ...(customerId && { stripe_customer_id: customerId }),
   };
 
-  // On checkout completion, also pull and store billing details from Stripe
   if (includeAddress && customerId) {
     const details = await getStripeCustomerDetails(customerId);
     if (details.name)    payload.name    = details.name;
@@ -77,45 +64,35 @@ const updateProfileSubscription = async ({
 
   let updated = false;
 
-  // ── 1. Try by stripe_customer_id ─────────────────────────────────────────
+  // 1. Try update by stripe_customer_id
   if (customerId) {
     const { data, error } = await supabase
       .from("profiles")
       .update(payload)
       .eq("stripe_customer_id", customerId)
-      .select();
-
-    if (error) console.error("Webhook update by stripe_customer_id:", error);
+      .select("id");
+    console.log("[Webhook] by stripe_customer_id → rows:", data?.length, error?.message);
     if (data?.length > 0) updated = true;
   }
 
-  // ── 2. Try by email ───────────────────────────────────────────────────────
+  // 2. Try update by email
   if (!updated && email) {
     const { data, error } = await supabase
       .from("profiles")
       .update(payload)
       .eq("email", email)
-      .select();
-
-    if (error) console.error("Webhook update by email:", error);
+      .select("id");
+    console.log("[Webhook] by email → rows:", data?.length, error?.message);
     if (data?.length > 0) updated = true;
   }
 
-  // ── 3. Upsert by email as last resort ─────────────────────────────────────
-  if (!updated && email) {
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          ...payload,
-          email,
-          name: name || payload.name || "Stripe Customer",
-          role: "client",
-        },
-        { onConflict: "email" }
-      );
-
-    if (error) console.error("Webhook upsert by email:", error);
+  // 3. Cannot insert new rows — profiles.id is a FK to auth.users.id
+  //    If profile doesn't exist yet the user hasn't signed in via Google.
+  //    fetchUserProfile handles the merge on first sign-in via the
+  //    stripe_customer_id lookup.
+  if (!updated) {
+    console.log("[Webhook] profile not found for", email || customerId,
+      "— will merge on first Google sign-in via fetchUserProfile");
   }
 };
 
@@ -124,7 +101,7 @@ export async function POST(req) {
   const header  = req.headers.get("stripe-signature");
 
   if (!header) {
-    return NextResponse.json({ message: "Missing stripe-signature header" }, { status: 400 });
+    return NextResponse.json({ message: "Missing stripe-signature" }, { status: 400 });
   }
 
   let event;
@@ -132,16 +109,16 @@ export async function POST(req) {
     event = stripe.webhooks.constructEvent(
       payload,
       header,
-      process.env.NEXT_PUBLIC_STRIPE_WEBHOOK_SECRET
+      process.env.STRIPE_WEBHOOK_SECRET
     );
   } catch (err) {
-    console.error("Webhook signature verification failed:", err);
-    return NextResponse.json({ message: "Webhook signature verification failed" }, { status: 400 });
+    console.error("[Webhook] signature verification failed:", err.message);
+    return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
   }
 
   try {
-    const type = event.type;
-    const data = event.data.object;
+    const { type, data: { object: data } } = event;
+    console.log("[Webhook] event:", type);
 
     switch (type) {
       case "checkout.session.completed": {
@@ -151,30 +128,19 @@ export async function POST(req) {
         const name           = data.customer_details?.name  ?? null;
         const plan           = data.metadata?.plan ?? "launch";
 
-        console.log("checkout.session.completed", { customerId, subscriptionId, plan, email });
+        console.log("[Webhook] checkout.session.completed", { customerId, plan, email });
 
         await updateProfileSubscription({
-          customerId,
-          status: "active",
-          plan,
-          email,
-          name,
-          includeAddress: true,  // ← pull billing address from Stripe and save to profiles
+          customerId, status: "active", plan, email, name, includeAddress: true,
         });
 
-        // Refine plan from the actual subscription price
         if (subscriptionId) {
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          if (subscription?.items?.data?.[0]?.price) {
-            const mappedPlan = planForPrice(subscription.items.data[0].price.id);
-            const subStatus  = subscription.status === "active" ? "active" : subscription.status;
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          if (sub?.items?.data?.[0]?.price) {
+            const mappedPlan = planForPrice(sub.items.data[0].price.id);
+            const subStatus  = sub.status === "active" ? "active" : sub.status;
             await updateProfileSubscription({
-              customerId,
-              status:  subStatus,
-              plan:    mappedPlan,
-              email,
-              name,
-              includeAddress: false, // already saved above
+              customerId, status: subStatus, plan: mappedPlan, email, name, includeAddress: false,
             });
           }
         }
@@ -182,22 +148,18 @@ export async function POST(req) {
       }
 
       case "customer.subscription.updated": {
-        const customerId = data.customer;
-        const status     = data.status;
-        const plan       = planForPrice(data.items?.data?.[0]?.price?.id);
-        await updateProfileSubscription({ customerId, status, plan });
+        const plan = planForPrice(data.items?.data?.[0]?.price?.id);
+        await updateProfileSubscription({ customerId: data.customer, status: data.status, plan });
         break;
       }
 
       case "customer.subscription.deleted": {
-        const customerId = data.customer;
-        await updateProfileSubscription({ customerId, status: "canceled", plan: "launch" });
+        await updateProfileSubscription({ customerId: data.customer, status: "canceled", plan: "launch" });
         break;
       }
 
       case "invoice.payment_failed": {
-        const customerId = data.customer;
-        await updateProfileSubscription({ customerId, status: "past_due", plan: undefined });
+        await updateProfileSubscription({ customerId: data.customer, status: "past_due" });
         break;
       }
 
@@ -205,8 +167,8 @@ export async function POST(req) {
         break;
     }
   } catch (err) {
-    console.error("Webhook processing error", err);
-    return NextResponse.json({ message: "Webhook processing error" }, { status: 500 });
+    console.error("[Webhook] processing error:", err);
+    return NextResponse.json({ message: "Processing error" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true });

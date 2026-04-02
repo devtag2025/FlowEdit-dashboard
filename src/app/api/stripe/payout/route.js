@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-const stripe = new Stripe(process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: process.env.STRIPE_API_VERSION || "2026-03-25.dahlia",
+});
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_SECRET_KEY,
-  
+  process.env.SUPABASE_SECRET_KEY
 );
+
 export async function POST(req) {
   try {
     const { contractorId, adminId, amount, currency = "gbp", description } =

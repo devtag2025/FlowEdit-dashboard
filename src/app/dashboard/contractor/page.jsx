@@ -1,10 +1,10 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
 import { Eye, Search, Activity, Clock, CheckCircle } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
-import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
+import StatCard from "@/components/Dashboard/StatCard";
+import { StatusBadge,ActionButton } from "@/components/Dashboard/StatusBadge";
 import { Input } from "@/components/ui/input";
-import FilterButton from "@/components/dashboard/FilterButton";
+import FilterButton from "@/components/Dashboard/FilterButton";
 import {
   Select,
   SelectContent,

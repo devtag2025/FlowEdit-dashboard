@@ -1,3 +1,5 @@
+// src/app/auth/callback/route.js
+// Kept simple — the DB trigger handles pending_subscriptions merge on user creation
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,6 +30,5 @@ export async function GET(request) {
     }
   }
 
-  // Auth failed — redirect to login with error
   return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
 }

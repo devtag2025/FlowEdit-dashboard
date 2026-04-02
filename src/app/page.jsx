@@ -20,10 +20,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import Link from "next/link";
+import { createCheckoutSession } from "@/lib/queries/billing";
+import { getStripe } from "@/lib/stripe";
 
 export default function FlowEditLandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [loadingPlan, setLoadingPlan] = useState(null);
+
 
   const features = [
     {
@@ -54,8 +58,9 @@ export default function FlowEditLandingPage() {
 
   const pricingPlans = [
     {
+      key: "starter",
       name: "Starter",
-      price: "$299",
+      price: "$499",
       period: "/month",
       description: "For content creators",
       features: [
@@ -67,8 +72,9 @@ export default function FlowEditLandingPage() {
       ],
     },
     {
+      key: "pro",
       name: "Professional",
-      price: "$599",
+      price: "$1499",
       period: "/month",
       description: "For businesses",
       features: [
@@ -82,8 +88,9 @@ export default function FlowEditLandingPage() {
       popular: true,
     },
     {
+      key: "agency",
       name: "Enterprise",
-      price: "$1,299",
+      price: "$2499",
       period: "/month",
       description: "For agencies",
       features: [
@@ -121,6 +128,30 @@ export default function FlowEditLandingPage() {
       rating: 5,
     },
   ];
+
+  const handleCheckout = async (planKey) => {
+    try {
+      setLoadingPlan(planKey);
+      const payload = await createCheckoutSession(planKey, null, null);
+      if (payload.url) {
+        window.location.href = payload.url;
+        return;
+      }
+      if (!payload.id) {
+        throw new Error("Checkout session returned invalid payload");
+      }
+      const stripe = await getStripe();
+      const result = await stripe.redirectToCheckout({ sessionId: payload.id });
+      if (result?.error) {
+        throw new Error(result.error.message);
+      }
+    } catch (err) {
+      console.error("Landing checkout error", err);
+      alert(`Checkout initialization failed: ${err?.message || err}`);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   const handleSubmit = () => {
     if (email) {
@@ -362,13 +393,15 @@ export default function FlowEditLandingPage() {
                   <span className="text-accent/60">{plan.period}</span>
                 </div>
                 <Button
+                  onClick={() => handleCheckout(plan.key)}
+                  disabled={loadingPlan === plan.key}
                   className={`w-full py-6 rounded-xl text-base font-semibold ${
                     plan.popular
                       ? "bg-primary hover:bg-primary/90 text-white"
                       : "bg-white hover:bg-accent/5 text-accent border-2 border-accent/20"
-                  }`}
+                  } ${loadingPlan === plan.key ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
-                  Get Started
+                  {loadingPlan === plan.key ? "Processing..." : "Get Started"}
                 </Button>
                 <ul className="mt-8 space-y-4">
                   {plan.features.map((feature, idx) => (

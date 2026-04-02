@@ -1,64 +1,76 @@
 "use client";
 
 import PlanCard from "./PlanCard";
+import { createCheckoutSession } from "@/lib/queries/billing";
+import { getStripe } from "@/lib/stripe";
+import { useState } from "react";
 
-const PlanCards = () => {
+const PlanCards = ({ profile }) => {
+  const [loadingPlan, setLoadingPlan] = useState(null);
+
+  const planOrder = { starter: 1, pro: 2, agency: 3 };
+  const currentPlanRaw = profile?.subscription_plan ? profile.subscription_plan.toLowerCase() : null;
+  const currentPlan = currentPlanRaw !== "launch" ? currentPlanRaw : null;
+  const currentOrder = currentPlan ? planOrder[currentPlan] || null : null;
+
   const plans = [
     {
-      title: "Launch",
-      price: "$ 0",
-      description: "Get started for free.",
-      features: [
-        "1 video per month",
-        "72h Turnaround",
-        "Basic stock footage",
-        "No revisions",
-      ],
-      buttonText: "Upgrade to Starter",
-      highlighted: false,
-    },
-    {
+      key: "starter",
       title: "Starter",
       price: "$ 499",
       description: "Perfect for individuals.",
-      features: [
-        "2 videos per month",
-        "48h Turnaround",
-        "Stock Footage included",
-        "1 Revision round",
-      ],
-      buttonText: "Downgrade to Starter",
-      highlighted: false,
+      features: ["2 videos per month", "48h Turnaround", "Stock Footage included", "1 Revision round"],
     },
     {
+      key: "pro",
       title: "Pro",
       price: "$ 999",
       description: "Great for growing brands.",
-      features: [
-        "8 videos per month",
-        "24h Turnaround",
-        "Premiuim Stock Assets",
-        "Unlimited Revisions",
-        "Dedicated Editor",
-      ],
-      buttonText: "Your Current Plan",
-      highlighted: true,
+      features: ["8 videos per month", "24h Turnaround", "Premium Stock Assets", "Unlimited Revisions", "Dedicated Editor"],
     },
     {
+      key: "agency",
       title: "Agency",
       price: "$ 2499",
-      description: "For high-volumes teams.",
-      features: [
-        "20 videos per month",
-        "Priority Support",
-        "Custom Motion Graphics",
-        "Stack Integration",
-        "White-labeling",
-      ],
-      buttonText: "Upgrade to Agency",
-      highlighted: false,
+      description: "For high-volume teams.",
+      features: ["20 videos per month", "Priority Support", "Custom Motion Graphics", "Stack Integration", "White-labeling"],
     },
   ];
+
+  const handleSubscribe = async (plan) => {
+    if (!profile?.id) {
+      alert("Please sign in before upgrading your plan.");
+      return;
+    }
+
+    try {
+      setLoadingPlan(plan);
+      const payload = await createCheckoutSession(plan, profile.id, profile.stripe_customer_id);
+      const url = payload?.url;
+      const sessionId = payload?.id;
+
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+
+      if (!sessionId) {
+        throw new Error("Checkout session did not return a URL or session ID.");
+      }
+
+      const stripe = await getStripe();
+      const result = await stripe.redirectToCheckout({ sessionId });
+
+      if (result?.error) {
+        throw new Error(result.error.message);
+      }
+    } catch (err) {
+      console.error("Failed to start checkout", err);
+      alert(`Checkout initialization failed: ${err?.message ?? err}`);
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
 
   return (
     <>
@@ -73,9 +85,40 @@ const PlanCards = () => {
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-1 max-w-5xl mx-auto my-6">
-        {plans.map((plan) => (
-          <PlanCard key={plan.title} plan={plan} />
-        ))}
+        {plans.map((plan) => {
+          const planLevel = planOrder[plan.key];
+          const isCurrent = plan.key === currentPlan;
+          const isUpgradeable = planLevel > currentOrder;
+          const isDowngrade = planLevel < currentOrder;
+          const planStatus = profile?.subscription_status || "none";
+
+          let buttonText = "Select Plan";
+          let buttonDisabled = false;
+
+          if (isCurrent) {
+            buttonText = "Current Plan";
+            buttonDisabled = true;
+          } else if (planStatus !== "active") {
+            buttonText = "Activate via Checkout";
+          } else if (isUpgradeable) {
+            buttonText = `Upgrade to ${plan.title}`;
+          } else if (isDowngrade) {
+            buttonText = `Downgrade to ${plan.title}`;
+          }
+
+          return (
+            <PlanCard
+              key={plan.key}
+              plan={{
+                ...plan,
+                highlighted: isCurrent,
+                buttonText,
+                buttonDisabled: buttonDisabled || loadingPlan,
+                onClick: () => handleSubscribe(plan.key),
+              }}
+            />
+          );
+        })}
       </div>
     </>
   );

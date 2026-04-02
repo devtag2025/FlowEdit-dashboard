@@ -1,4 +1,4 @@
-import { Clock, Bell, UserCheck, MessageCircle } from "lucide-react";
+import { Clock, Bell, UserCheck, MessageCircle, Megaphone } from "lucide-react";
 import React from "react";
 
 function timeAgo(dateStr) {
@@ -16,9 +16,23 @@ function timeAgo(dateStr) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+// Strip HTML tags for list preview — full HTML renders in NotificationDetail
+function stripHtml(html) {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const typeToIcon = {
   project_update: Clock,
-  assignment: UserCheck,
+  assignment:     UserCheck,
+  broadcast:      Megaphone,   // ← broadcast icon
 };
 
 const NotificationBar = ({
@@ -30,11 +44,15 @@ const NotificationBar = ({
   return (
     <div className="space-y-3 mt-4">
       {notifications.map((notification) => {
-        const Icon = typeToIcon[notification.type] || MessageCircle;
+        const Icon      = typeToIcon[notification.type] || MessageCircle;
         const isSelected = selectedId === notification.id;
+        // Plain text preview — no HTML tags in the list
+        const preview   = stripHtml(notification.message);
+
         return (
           <div key={notification.id}>
-            {/* Desktop */}
+
+            {/* ── Desktop ── */}
             <div
               className={`hidden lg:flex bg-white rounded-lg p-3 justify-between hover:bg-accent/10 cursor-pointer overflow-hidden ${
                 isSelected ? "ring-2 ring-primary/40" : ""
@@ -50,8 +68,9 @@ const NotificationBar = ({
                   <h4 className={`text-accent text-lg mb-1 truncate ${!notification.is_read ? "font-bold" : "font-medium"}`}>
                     {notification.title}
                   </h4>
+                  {/* preview — HTML stripped, truncated */}
                   <p className="text-slate-600 text-sm truncate">
-                    {notification.message}
+                    {preview}
                   </p>
                 </div>
               </div>
@@ -61,7 +80,7 @@ const NotificationBar = ({
               </span>
             </div>
 
-            {/* Mobile */}
+            {/* ── Mobile ── */}
             <div
               className={`lg:hidden bg-white rounded-xl p-4 flex flex-col hover:bg-gray-200 cursor-pointer ${
                 !notification.is_read ? "border-l-4 border-l-primary" : ""
@@ -77,8 +96,12 @@ const NotificationBar = ({
               <h4 className={`text-accent text-lg mb-1 ${!notification.is_read ? "font-bold" : "font-medium"}`}>
                 {notification.title}
               </h4>
-              <p className="text-slate-600 text-sm truncate">{notification.message}</p>
+              {/* preview — HTML stripped, truncated */}
+              <p className="text-slate-600 text-sm truncate">
+                {preview}
+              </p>
             </div>
+
           </div>
         );
       })}

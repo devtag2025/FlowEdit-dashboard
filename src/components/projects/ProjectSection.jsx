@@ -4,7 +4,7 @@ import { Play, ArrowLeft, MoveRight, Check, Upload, Link as LinkIcon, X } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { StatusBadge } from "@/components/dashboard/StatusBadge";
+import { StatusBadge } from "../Dashboard/StatusBadge";
 import ProjectDetails from "./ProjectDetails";
 import { Card, CardContent } from "../ui/card";
 import {

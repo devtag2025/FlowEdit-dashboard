@@ -54,6 +54,28 @@ export default function ContractorsPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchContractors();
+      setContractors(
+        data.map((c, i) => ({
+          ...c,
+          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+          statusColor: statusColor(c.status),
+        })),
+      );
+    } catch (err) {
+      console.error("Failed to load contractors:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
   const filteredContractors = contractors.filter((contractor) => {
     const matchesFilter =
       activeFilter === "All" ||

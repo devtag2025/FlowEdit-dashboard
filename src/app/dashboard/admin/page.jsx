@@ -10,10 +10,10 @@ import {
   Briefcase,
   UserCheck,
 } from "lucide-react";
-import StatCard from "@/components/dashboard/StatCard";
+import StatCard from "@/components/Dashboard/StatCard";
 import { Input } from "@/components/ui/input";
-import { StatusBadge, ActionButton } from "@/components/dashboard/StatusBadge";
-import FilterButton from "@/components/dashboard/FilterButton";
+import { StatusBadge,ActionButton } from "@/components/Dashboard/StatusBadge";
+import FilterButton from "@/components/Dashboard/FilterButton";
 import {
   Select,
   SelectContent,
@@ -31,8 +31,8 @@ import {
   markPosted,
 } from "@/lib/queries/projects";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import AssignContractorModal from "@/components/dashboard/AssignContractorModal";
-import MarkPostedModal from "@/components/dashboard/MarkPostedModal";
+import AssignContractorModal from "@/components/Dashboard/AssignContractorModal";
+import MarkPostedModal from "@/components/Dashboard/MarkPostedModal";
 import { notifyProjectEvent } from "@/lib/queries/notifications";
 
 const filters = [

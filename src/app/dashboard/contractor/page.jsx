@@ -1,136 +1,83 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
-import { Eye, Search, Activity, Clock, CheckCircle } from "lucide-react";
-import StatCard from "@/components/Dashboard/StatCard";
-import { StatusBadge,ActionButton } from "@/components/Dashboard/StatusBadge";
+import { useState, useEffect, useCallback } from "react";
+import EmptyContractorDetail from "@/components/contractors/EmptyContractor";
+import ContractorDetail from "@/components/contractors/ContractorDetail";
+import { fetchContractors } from "@/lib/queries/contractors";
+import {
+  Search, Eye, MessageSquare, MoreVertical, ChevronUp,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
-import FilterButton from "@/components/Dashboard/FilterButton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { ActionButton } from "@/components/Dashboard/StatusBadge";
 import Loader from "@/components/common/Loader";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  fetchContractorProjects,
-  fetchUserProfile,
-} from "@/lib/queries/projects";
 
-const filters = [
-  "All",
-  "In Progress",
-  "Review",
-  "Completed",
-  "Ready to Post",
-  "Posted",
+const filters = ["All", "New", "Inactive"];
+
+const AVATAR_COLORS = [
+  "bg-purple-500", "bg-blue-500", "bg-pink-500",
+  "bg-green-500",  "bg-orange-500", "bg-indigo-500",
 ];
 
-const filterToStatus = {
-  "In Progress": "in_progress",
-  Review: "review",
-  Completed: "completed",
-  "Ready to Post": "ready_to_post",
-  Posted: "posted",
-};
-
-function computeStats(projects) {
-  const total = projects.length;
-  const active = projects.filter(
-    (p) => p.status === "in_progress" || p.status === "review"
-  ).length;
-  const inReview = projects.filter((p) => p.status === "review").length;
-  const completed = projects.filter(
-    (p) => p.status === "completed" || p.status === "ready_to_post" || p.status === "posted"
-  ).length;
-
-  return [
-    {
-      icon: Activity,
-      title: "Active Projects",
-      percentage: total > 0 ? `${Math.round((active / total) * 100)}%` : "0%",
-      subtitle: `${active} of ${total} assigned`,
-    },
-    {
-      icon: Clock,
-      title: "Videos in Review",
-      percentage: total > 0 ? `${Math.round((inReview / total) * 100)}%` : "0%",
-      subtitle: `${inReview} awaiting feedback`,
-    },
-    {
-      icon: CheckCircle,
-      title: "Completed",
-      percentage: total > 0 ? `${Math.round((completed / total) * 100)}%` : "0%",
-      subtitle: `${completed} delivered`,
-    },
-  ];
+function statusColor(status) {
+  if (status === "Active")   return "bg-green-100 text-green-700";
+  if (status === "New")      return "bg-blue-100 text-blue-700";
+  if (status === "Inactive") return "bg-gray-100 text-gray-700";
+  return "bg-yellow-100 text-yellow-700";
 }
 
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
-  return "Good Evening";
-}
+export default function ContractorsPage() {
+  const [contractors, setContractors]               = useState([]);
+  const [loading, setLoading]                       = useState(true);
+  const [activeFilter, setActiveFilter]             = useState("All");
+  const [searchQuery, setSearchQuery]               = useState("");
+  const [selectedContractor, setSelectedContractor] = useState(null);
+  const [mobileDetailOpen, setMobileDetailOpen]     = useState(false);
 
-function formatDate(dateStr) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "2-digit",
-    day: "2-digit",
-    year: "numeric",
-  });
-}
-
-const ContractorDashboard = () => {
-  const router = useRouter();
-  const [activeFilter, setActiveFilter] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  const loadData = useCallback(async () => {
+  // ── declare load BEFORE useEffect that calls it ────────────────────────────
+  const load = useCallback(async () => {
     try {
-      setIsLoading(true);
-      const userProfile = await fetchUserProfile();
-      if (!userProfile) return;
-      setProfile(userProfile);
-      const data = await fetchContractorProjects(userProfile.id);
-      setProjects(data || []);
+      setLoading(true);
+      const data = await fetchContractors();
+      setContractors(
+        data.map((c, i) => ({
+          ...c,
+          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+          statusColor: statusColor(c.status),
+        }))
+      );
     } catch (err) {
-      console.error("Failed to load projects:", err);
+      console.error("Failed to load contractors:", err);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  useEffect(() => { load(); }, [load]);
 
-  const handleProjectView = (project) => {
-    setLoading(true);
-    router.push(`/dashboard/contractor/projects/${project.id}`);
-  };
-
-  const filteredProjects = projects.filter((project) => {
+  // ── derived state ──────────────────────────────────────────────────────────
+  const filteredContractors = contractors.filter((contractor) => {
     const matchesFilter =
-      activeFilter === "All" || project.status === filterToStatus[activeFilter];
+      activeFilter === "All" ||
+      (activeFilter === "New"      && contractor.status === "New") ||
+      (activeFilter === "Inactive" && contractor.status === "Inactive");
     const matchesSearch =
-      project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (project.platform || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (project.client?.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      contractor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contractor.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  const stats = computeStats(projects);
+  const handleContractorSelect = (contractor) => {
+    setSelectedContractor(contractor);
+    setMobileDetailOpen(true);
+  };
 
-  if (isLoading) {
+  const handleBackToList = () => {
+    setSelectedContractor(null);
+    setMobileDetailOpen(false);
+  };
+
+  if (loading) {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <Loader />
@@ -139,221 +86,153 @@ const ContractorDashboard = () => {
   }
 
   return (
-    <div>
-      {loading && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
-          <Loader />
+    <div className="min-h-screen bg-secondary p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1">Contractors</h1>
         </div>
-      )}
-      <div className="bg-secondary p-4 md:p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1 sm:mb-2">
-                {getGreeting()}, {profile?.name?.split(" ")[0] || "there"}
-              </h1>
-              <p className="text-sm sm:text-base text-accent/70 font-onest font-bold">
-                Your assigned projects and deadlines
-              </p>
-            </div>
-            <div className="bg-white/50 py-2 px-4 rounded-full flex items-center gap-3 text-sm w-fit">
-              <span className="text-accent/70 font-semibold">Status</span>
-              <span className={`rounded-full py-1 px-3 font-bold text-xs ${
-                profile?.onboarding_completed
-                  ? "bg-green-100 text-green-700"
-                  : "bg-white text-primary"
-              }`}>
-                {profile?.onboarding_completed ? "Active" : "Inactive"}
-              </span>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-            {stats.map((stat, index) => (
-              <StatCard key={index} {...stat} />
-            ))}
-          </div>
+        <div className="hidden lg:block">
+          {selectedContractor ? (
+            <ContractorDetail contractor={selectedContractor} onBack={handleBackToList} />
+          ) : (
+            <EmptyContractorDetail />
+          )}
+        </div>
 
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h2 className="text-2xl font-semibold font-onest text-accent">
-                Assigned Projects
-              </h2>
-            </div>
-
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="relative w-full overflow-hidden">
-                <div className="w-full">
-                  <div className="lg:hidden w-full">
-                    <Select value={activeFilter} onValueChange={setActiveFilter}>
-                      <SelectTrigger className="h-11 w-full rounded-xl border border-accent/20 bg-white! text-sm font-semibold text-accent transition-all hover:border-primary/50 hover:bg-accent/5 focus:ring-2 focus:ring-primary/40 focus:border-primary">
-                        <SelectValue placeholder="Select filter" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border border-accent/20 bg-white shadow-lg">
-                        {filters.map((filter) => (
-                          <SelectItem
-                            key={filter}
-                            value={filter}
-                            className="cursor-pointer text-sm font-medium text-accent focus:bg-primary/10 focus:text-accent data-[state=checked]:bg-primary/15 data-[state=checked]:font-semibold"
-                          >
-                            {filter}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="hidden lg:flex gap-2 flex-wrap">
-                    {filters.map((filter) => (
-                      <FilterButton
-                        key={filter}
-                        active={activeFilter === filter}
-                        onClick={() => setActiveFilter(filter)}
-                      >
-                        {filter}
-                      </FilterButton>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="relative w-full lg:w-80 bg-white rounded-2xl">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
-                <Input
-                  type="text"
-                  placeholder="Search projects..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
-                />
-              </div>
-            </div>
-
-            {/* Desktop Table */}
-            <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-accent/10">
-                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Project
-                    </th>
-                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Client
-                    </th>
-                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Status
-                    </th>
-                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Deadline
-                    </th>
-                    <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredProjects.map((project) => (
-                    <tr
-                      key={project.id}
-                      className="border-b border-accent/10 hover:bg-accent/5 transition-colors"
-                    >
-                      <td className="p-4">
-                        <div>
-                          <p className="font-semibold text-accent">{project.title}</p>
-                          <p className="text-xs text-accent/50 capitalize">{project.platform || "—"}</p>
-                        </div>
-                      </td>
-
-                      <td className="p-4">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="w-7 h-7">
-                            {project.client?.avatar_url ? (
-                              <AvatarImage src={project.client.avatar_url} />
-                            ) : (
-                              <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
-                                {project.client?.name?.[0] || "?"}
-                              </AvatarFallback>
-                            )}
-                          </Avatar>
-                          <span className="text-sm text-accent/80">
-                            {project.client?.name || "—"}
-                          </span>
-                        </div>
-                      </td>
-
-                      <td className="p-4">
-                        <StatusBadge status={project.status} />
-                      </td>
-
-                      <td className="p-4 text-accent/70">
-                        {formatDate(project.deadline)}
-                      </td>
-
-                      <td className="p-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <ActionButton
-                            icon={Eye}
-                            label="View"
-                            onClick={() => handleProjectView(project)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Cards */}
-            <div className="lg:hidden space-y-4">
-              {filteredProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="bg-tertiary rounded-2xl p-4 space-y-4"
+        <div className="space-y-4">
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex gap-2 flex-wrap">
+              {filters.map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    activeFilter === filter
+                      ? "bg-primary text-white"
+                      : "bg-white text-accent hover:bg-accent/5"
+                  }`}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-accent mb-1">
-                        {project.title}
-                      </h3>
-                      <p className="text-sm text-accent/70 capitalize">
-                        {project.platform || "—"}
-                      </p>
-                    </div>
-                    <StatusBadge status={project.status} />
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-accent/60">
-                    <span>Client: {project.client?.name || "—"}</span>
-                    <span>Due: {formatDate(project.deadline)}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-2">
-                    <ActionButton
-                      icon={Eye}
-                      label="View"
-                      onClick={() => handleProjectView(project)}
-                    />
-                  </div>
-                </div>
+                  {filter}
+                </button>
               ))}
             </div>
 
-            {filteredProjects.length === 0 && !isLoading && (
-              <div className="bg-tertiary rounded-2xl p-12 text-center">
-                <p className="text-accent/60">
-                  {projects.length === 0
-                    ? "No projects assigned yet."
-                    : "No projects found matching your criteria."}
-                </p>
-              </div>
-            )}
+            <div className="relative w-full lg:w-80 bg-white rounded-2xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
+              <Input
+                type="text"
+                placeholder="Search contractors..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+              />
+            </div>
           </div>
+
+          {/* Desktop Table */}
+          <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-accent/10">
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Contractor</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Email</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Status</th>
+                  <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContractors.map((contractor) => (
+                  <tr
+                    key={contractor.id}
+                    className="border-b border-accent/10 hover:bg-accent/5 transition-colors"
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className={`${contractor.avatarColor} text-white text-xs font-bold`}>
+                            {contractor.name?.[0]?.toUpperCase() || "?"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold text-accent">{contractor.name}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 text-accent/70 text-sm">{contractor.email}</td>
+                    <td className="p-4">
+                      <Badge className={`${contractor.statusColor} border-0 text-xs font-semibold`}>
+                        {contractor.status || "Active"}
+                      </Badge>
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <ActionButton
+                          icon={Eye}
+                          label="View"
+                          onClick={() => handleContractorSelect(contractor)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Cards */}
+          <div className="lg:hidden space-y-4">
+            {filteredContractors.map((contractor) => (
+              <div
+                key={contractor.id}
+                className="bg-tertiary rounded-2xl p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-9 h-9">
+                      <AvatarFallback className={`${contractor.avatarColor} text-white text-sm font-bold`}>
+                        {contractor.name?.[0]?.toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-accent text-sm">{contractor.name}</p>
+                      <p className="text-xs text-accent/60">{contractor.email}</p>
+                    </div>
+                  </div>
+                  <Badge className={`${contractor.statusColor} border-0 text-xs font-semibold`}>
+                    {contractor.status || "Active"}
+                  </Badge>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <ActionButton
+                    icon={Eye}
+                    label="View"
+                    onClick={() => handleContractorSelect(contractor)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Mobile detail panel */}
+          {mobileDetailOpen && selectedContractor && (
+            <div className="lg:hidden">
+              <ContractorDetail
+                contractor={selectedContractor}
+                onBack={handleBackToList}
+              />
+            </div>
+          )}
+
+          {filteredContractors.length === 0 && !loading && (
+            <div className="bg-tertiary rounded-2xl p-12 text-center">
+              <p className="text-accent/60">
+                {contractors.length === 0
+                  ? "No contractors found."
+                  : "No contractors match your search."}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
-};
-
-export default ContractorDashboard;
+}

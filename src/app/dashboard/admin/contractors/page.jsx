@@ -34,25 +34,6 @@ export default function ContractorsPage() {
   const [selectedContractor, setSelectedContractor] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen]     = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fetchContractors();
-      setContractors(
-        data.map((c, i) => ({
-          ...c,
-          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
-          statusColor: statusColor(c.status),
-        }))
-      );
-    } catch (err) {
-      console.error("Failed to load contractors:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
 
   const load = useCallback(async () => {
     try {

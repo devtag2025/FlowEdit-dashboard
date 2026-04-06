@@ -1,3 +1,4 @@
+// src/app/api/webhooks/stripe/route.js
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
@@ -6,10 +7,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: process.env.STRIPE_API_VERSION || "2026-03-25.dahlia",
 });
 
-// Must use the JWT service_role key (starts with eyJ) — not the sb_secret_ key
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SECRET_KEY
+  process.env.SUPABASE_SECRET_KEY  // must be eyJ... service role JWT
 );
 
 const planForPrice = (priceId) => {
@@ -20,81 +20,73 @@ const planForPrice = (priceId) => {
   return "launch";
 };
 
-async function getStripeCustomerDetails(customerId) {
-  if (!customerId) return {};
-  try {
-    const customer = await stripe.customers.retrieve(customerId);
-    return {
-      name:    customer.name  || null,
-      email:   customer.email || null,
-      address: customer.address?.line1
-        ? [customer.address.line1, customer.address.line2].filter(Boolean).join(", ")
-        : null,
-      city: [customer.address?.city, customer.address?.state].filter(Boolean).join(", ") || null,
-    };
-  } catch (e) {
-    console.error("[Webhook] getStripeCustomerDetails error:", e.message);
-    return {};
-  }
-}
-
-const updateProfileSubscription = async ({
-  customerId, status, plan, email, name, includeAddress = false,
-}) => {
-  console.log("[Webhook] updateProfile:", { customerId, status, plan, email });
+/**
+ * Central subscription sync function.
+ *
+ * Strategy:
+ *  1. Try UPDATE profiles by stripe_customer_id  → user already logged in before
+ *  2. Try UPDATE profiles by email               → same (trigger already ran)
+ *  3. Neither matched → user hasn't logged in yet
+ *     UPSERT into pending_subscriptions so the trigger picks it up on first login
+ */
+async function syncSubscription({ customerId, status, plan, email }) {
+  console.log("[Webhook] syncSubscription", { customerId, status, plan, email });
 
   if (!customerId && !email) {
-    console.warn("[Webhook] no customerId or email — skipping");
+    console.warn("[Webhook] no identifier — skipping");
     return;
   }
 
-  const payload = {
+  const profilePayload = {
     subscription_status: status,
-    ...(plan !== undefined && { subscription_plan: plan }),
-    ...(customerId && { stripe_customer_id: customerId }),
+    ...(plan          && { subscription_plan:   plan }),
+    ...(customerId    && { stripe_customer_id:  customerId }),
   };
-
-  if (includeAddress && customerId) {
-    const details = await getStripeCustomerDetails(customerId);
-    if (details.name)    payload.name    = details.name;
-    if (details.email)   payload.email   = details.email;
-    if (details.address) payload.address = details.address;
-    if (details.city)    payload.city    = details.city;
-  }
 
   let updated = false;
 
-  // 1. Try update by stripe_customer_id
+  // 1. Try by stripe_customer_id
   if (customerId) {
     const { data, error } = await supabase
       .from("profiles")
-      .update(payload)
+      .update(profilePayload)
       .eq("stripe_customer_id", customerId)
       .select("id");
-    console.log("[Webhook] by stripe_customer_id → rows:", data?.length, error?.message);
+    console.log("[Webhook] by stripe_customer_id →", data?.length ?? 0, error?.message ?? "ok");
     if (data?.length > 0) updated = true;
   }
 
-  // 2. Try update by email
+  // 2. Try by email
   if (!updated && email) {
     const { data, error } = await supabase
       .from("profiles")
-      .update(payload)
+      .update(profilePayload)
       .eq("email", email)
       .select("id");
-    console.log("[Webhook] by email → rows:", data?.length, error?.message);
+    console.log("[Webhook] by email →", data?.length ?? 0, error?.message ?? "ok");
     if (data?.length > 0) updated = true;
   }
 
-  // 3. Cannot insert new rows — profiles.id is a FK to auth.users.id
-  //    If profile doesn't exist yet the user hasn't signed in via Google.
-  //    fetchUserProfile handles the merge on first sign-in via the
-  //    stripe_customer_id lookup.
-  if (!updated) {
-    console.log("[Webhook] profile not found for", email || customerId,
-      "— will merge on first Google sign-in via fetchUserProfile");
+  // 3. No profile row yet — store in staging table
+  //    The trigger on auth.users will merge this on Google sign-in
+  if (!updated && email) {
+    const { error } = await supabase
+      .from("pending_subscriptions")
+      .upsert({
+        email,
+        stripe_customer_id:  customerId ?? null,
+        subscription_status: status,
+        subscription_plan:   plan ?? "launch",
+        updated_at:          new Date().toISOString(),
+      }, { onConflict: "email" });
+
+    if (error) {
+      console.error("[Webhook] pending_subscriptions upsert failed:", error.message);
+    } else {
+      console.log("[Webhook] saved to pending_subscriptions for", email);
+    }
   }
-};
+}
 
 export async function POST(req) {
   const payload = await req.text();
@@ -106,60 +98,52 @@ export async function POST(req) {
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      payload,
-      header,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    event = stripe.webhooks.constructEvent(payload, header, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
-    console.error("[Webhook] signature verification failed:", err.message);
+    console.error("[Webhook] signature error:", err.message);
     return NextResponse.json({ message: "Invalid signature" }, { status: 400 });
   }
 
+  const { type, data: { object: obj } } = event;
+  console.log("[Webhook] event:", type);
+
   try {
-    const { type, data: { object: data } } = event;
-    console.log("[Webhook] event:", type);
-
     switch (type) {
+
       case "checkout.session.completed": {
-        const customerId     = data.customer;
-        const subscriptionId = data.subscription;
-        const email          = data.customer_details?.email ?? data.metadata?.email ?? null;
-        const name           = data.customer_details?.name  ?? null;
-        const plan           = data.metadata?.plan ?? "launch";
+        const customerId = obj.customer;
+        const email      = obj.customer_details?.email ?? obj.metadata?.email ?? null;
+        const plan       = obj.metadata?.plan ?? "launch";
 
-        console.log("[Webhook] checkout.session.completed", { customerId, plan, email });
-
-        await updateProfileSubscription({
-          customerId, status: "active", plan, email, name, includeAddress: true,
-        });
-
-        if (subscriptionId) {
-          const sub = await stripe.subscriptions.retrieve(subscriptionId);
-          if (sub?.items?.data?.[0]?.price) {
-            const mappedPlan = planForPrice(sub.items.data[0].price.id);
-            const subStatus  = sub.status === "active" ? "active" : sub.status;
-            await updateProfileSubscription({
-              customerId, status: subStatus, plan: mappedPlan, email, name, includeAddress: false,
-            });
+        // Resolve final plan from the subscription if available
+        let resolvedPlan = plan;
+        if (obj.subscription) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(obj.subscription);
+            const priceId = sub?.items?.data?.[0]?.price?.id;
+            if (priceId) resolvedPlan = planForPrice(priceId);
+          } catch (e) {
+            console.warn("[Webhook] could not retrieve subscription:", e.message);
           }
         }
+
+        await syncSubscription({ customerId, status: "active", plan: resolvedPlan, email });
         break;
       }
 
       case "customer.subscription.updated": {
-        const plan = planForPrice(data.items?.data?.[0]?.price?.id);
-        await updateProfileSubscription({ customerId: data.customer, status: data.status, plan });
+        const plan = planForPrice(obj.items?.data?.[0]?.price?.id);
+        await syncSubscription({ customerId: obj.customer, status: obj.status, plan });
         break;
       }
 
       case "customer.subscription.deleted": {
-        await updateProfileSubscription({ customerId: data.customer, status: "canceled", plan: "launch" });
+        await syncSubscription({ customerId: obj.customer, status: "canceled", plan: "launch" });
         break;
       }
 
       case "invoice.payment_failed": {
-        await updateProfileSubscription({ customerId: data.customer, status: "past_due" });
+        await syncSubscription({ customerId: obj.customer, status: "past_due" });
         break;
       }
 

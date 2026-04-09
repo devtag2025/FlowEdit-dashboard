@@ -1,7 +1,7 @@
-import { supabase } from '../supabase/client';
-
+import { supabase } from "@/lib/supabase/client";
 export async function fetchMyPayments() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data, error } = await supabase
     .from('profiles')
     .select(
       `

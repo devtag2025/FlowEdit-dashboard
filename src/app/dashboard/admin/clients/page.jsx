@@ -1,48 +1,63 @@
-"use client"
+"use client";
 import { useState, useEffect, useCallback } from "react";
 import EmptyClientDetail from "@/components/clients/EmptyClient";
 import ClientDetail from "@/components/clients/ClientDetail";
 import { fetchClients } from "@/lib/queries/clients";
-import { Search, Eye, MessageSquare, MoreVertical, ChevronUp } from "lucide-react";
+import { Search, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ActionButton } from "@/components/Dashboard/StatusBadge";
+import { Eye } from "lucide-react";
 import Loader from "@/components/common/Loader";
-import { filters,AVATAR_COLORS } from "@/constants/admin/clients";
+
+const filters = ["All", "New", "Inactive"];
+
+const AVATAR_COLORS = [
+  "bg-primary",    "bg-blue-500",  "bg-purple-400",
+  "bg-indigo-500", "bg-pink-500",  "bg-green-500", "bg-orange-500",
+];
 
 function planColor(plan) {
-  if (!plan || plan === 'None' || plan === 'launch') return 'bg-slate-100 text-slate-600';
-  if (plan === 'agency')  return 'bg-yellow-100 text-yellow-700';
-  if (plan === 'pro')     return 'bg-primary/10 text-primary';
-  if (plan === 'starter') return 'bg-green-100 text-green-700';
-  return 'bg-slate-100 text-slate-600';
+  if (!plan || plan === "launch") return "bg-slate-100 text-slate-600";
+  if (plan === "agency")          return "bg-yellow-100 text-yellow-700";
+  if (plan === "pro")             return "bg-primary/10 text-primary";
+  if (plan === "starter")         return "bg-green-100 text-green-700";
+  return "bg-slate-100 text-slate-600";
+}
+
+function planLabel(plan) {
+  if (!plan || plan === "launch") return "No plan";
+  if (plan === "starter")         return "Starter";
+  if (plan === "pro")             return "Pro";
+  if (plan === "agency")          return "Agency";
+  return plan;
 }
 
 function formatTenure(dateStr) {
-  if (!dateStr) return '—';
-  const d      = new Date(dateStr);
-  const now    = new Date();
-  const months = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
-  if (months < 1)  return 'This month';
-  if (months < 12) return `${months} month${months > 1 ? 's' : ''}`;
+  if (!dateStr) return "—";
+  const months =
+    (new Date().getFullYear() - new Date(dateStr).getFullYear()) * 12 +
+    (new Date().getMonth() - new Date(dateStr).getMonth());
+  if (months < 1)  return "This month";
+  if (months < 12) return `${months} month${months > 1 ? "s" : ""}`;
   const years = Math.floor(months / 12);
   const rem   = months % 12;
-  return rem > 0 ? `${years} year${years > 1 ? 's' : ''} ${rem} month${rem > 1 ? 's' : ''}` : `${years} year${years > 1 ? 's' : ''}`;
+  return rem > 0
+    ? `${years}y ${rem}mo`
+    : `${years} year${years > 1 ? "s" : ""}`;
 }
 
 function deriveStatus(subscriptionStatus) {
-  if (subscriptionStatus === 'active')   return 'New';      // active = recently paying
-  if (subscriptionStatus === 'inactive') return 'Inactive';
-  if (subscriptionStatus === 'canceled') return 'Inactive';
-  return 'Inactive';
+  if (subscriptionStatus === "active") return "New";
+  return "Inactive";
 }
 
-export default function Page() {
-  const [clients, setClients]           = useState([]);
-  const [loading, setLoading]           = useState(true);
-  const [activeFilter, setActiveFilter] = useState('All');
-  const [searchQuery, setSearchQuery]   = useState('');
+export default function ClientsPage() {
+  const [clients, setClients]                   = useState([]);
+  const [loading, setLoading]                   = useState(true);
+  const [activeFilter, setActiveFilter]         = useState("All");
+  const [searchQuery, setSearchQuery]           = useState("");
   const [selectedClient, setSelectedClient]     = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
@@ -50,20 +65,18 @@ export default function Page() {
     try {
       setLoading(true);
       const data = await fetchClients();
-      // Normalise DB rows into the shape the existing UI expects
       setClients(
         data.map((c, i) => ({
           ...c,
-          // Fields the UI reads directly
           avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
           planColor:   planColor(c.plan),
+          planLabel:   planLabel(c.plan),
           tenure:      formatTenure(c.memberSince),
-          lastActivity: c.lastActivity || '—',
           status:      deriveStatus(c.status),
         }))
       );
     } catch (err) {
-      console.error('Failed to load clients:', err);
+      console.error("Failed to load clients:", err);
     } finally {
       setLoading(false);
     }
@@ -71,22 +84,23 @@ export default function Page() {
 
   useEffect(() => { load(); }, [load]);
 
-  const filteredClients = clients.filter((client) => {
-    const matchesFilter = activeFilter === 'All' ||
-      (activeFilter === 'New'      && client.status === 'New') ||
-      (activeFilter === 'Inactive' && client.status === 'Inactive');
+  const filtered = clients.filter((c) => {
+    const matchesFilter =
+      activeFilter === "All" ||
+      (activeFilter === "New"      && c.status === "New") ||
+      (activeFilter === "Inactive" && c.status === "Inactive");
     const matchesSearch =
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchQuery.toLowerCase());
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
-  const handleClientSelect = (client) => {
+  const handleSelect = (client) => {
     setSelectedClient(client);
     setMobileDetailOpen(true);
   };
 
-  const handleBackToList = () => {
+  const handleBack = () => {
     setSelectedClient(null);
     setMobileDetailOpen(false);
   };
@@ -102,117 +116,46 @@ export default function Page() {
   return (
     <div className="min-h-screen bg-secondary p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1">Clients</h1>
-        </div>
 
+        <h1 className="text-2xl sm:text-3xl font-bold text-accent">Clients</h1>
+
+        {/* Desktop detail panel */}
         <div className="hidden lg:block">
           {selectedClient ? (
-            <ClientDetail client={selectedClient} onBack={handleBackToList} />
+            <ClientDetail client={selectedClient} onBack={handleBack} />
           ) : (
             <EmptyClientDetail />
           )}
         </div>
 
         <div className="space-y-4">
+          {/* Filters + Search */}
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
             <div className="flex gap-2 flex-wrap">
-              {filters.map((filter) => (
+              {filters.map((f) => (
                 <button
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
+                  key={f}
+                  onClick={() => setActiveFilter(f)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                    activeFilter === filter
-                      ? 'bg-primary text-white shadow-md'
-                      : 'bg-tertiary text-accent hover:bg-accent/5'
+                    activeFilter === f
+                      ? "bg-primary text-white"
+                      : "bg-white text-accent hover:bg-accent/5"
                   }`}
                 >
-                  {filter}
+                  {f}
                 </button>
               ))}
             </div>
 
-            <div className="relative w-full lg:w-80 bg-tertiary rounded-2xl">
+            <div className="relative w-full lg:w-80 bg-white rounded-2xl">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
               <Input
-                type="text"
-                placeholder="Search Clients"
+                placeholder="Search clients..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-10 bg-tertiary border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+                className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
               />
             </div>
-          </div>
-
-          {/* Mobile cards */}
-          <div className="lg:hidden space-y-4">
-            {filteredClients.map((client) => (
-              <div
-                key={client.id}
-                onClick={() => handleClientSelect(client)}
-                className="bg-tertiary rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <Avatar className={`w-12 h-12 ${client.avatarColor}`}>
-                      {client.avatar_url ? (
-                        <img src={client.avatar_url} alt={client.name} className="object-cover w-full h-full rounded-full" />
-                      ) : (
-                        <AvatarFallback className="text-white font-bold">
-                          {client.initials}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div>
-                      <p className="font-semibold text-accent">{client.name}</p>
-                      <p className="text-sm text-accent/60">{client.email}</p>
-                    </div>
-                  </div>
-                  <Badge className={`${client.planColor} border-0 font-semibold capitalize`}>
-                    {client.plan}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div>
-                    <p className="text-xs text-accent/60 mb-1">Tenure</p>
-                    <p className="text-sm font-medium text-accent">{client.tenure}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-accent/60 mb-1">Active Projects</p>
-                    <p className="text-sm font-medium text-accent">{client.activeProjects}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-accent/60 mb-1">Last Activity</p>
-                    <p className="text-sm font-medium text-accent">{client.lastActivity}</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    onClick={() => handleClientSelect(client)}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                    <span className="text-sm font-medium">View</span>
-                  </button>
-                  <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="text-sm font-medium">Message</span>
-                  </button>
-                  <button className="px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-
-            {filteredClients.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-16 bg-tertiary rounded-2xl">
-                <Search className="w-6 h-6 text-accent/50 mb-2" />
-                <p className="text-accent/60 text-sm">No clients found</p>
-              </div>
-            )}
           </div>
 
           {/* Desktop table */}
@@ -222,102 +165,154 @@ export default function Page() {
                 <tr className="border-b border-accent/10">
                   <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Client</th>
                   <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Plan</th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Tenure</th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Active Projects</th>
-                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Last Activity</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Status</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Projects</th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">Member since</th>
                   <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredClients.map((client) => (
+                {filtered.map((client) => (
                   <tr
                     key={client.id}
-                    onClick={() => handleClientSelect(client)}
+                    onClick={() => handleSelect(client)}
                     className={`border-b border-accent/10 hover:bg-accent/5 transition-colors cursor-pointer ${
-                      selectedClient?.id === client.id ? 'bg-accent/5' : ''
+                      selectedClient?.id === client.id ? "bg-primary/5" : ""
                     }`}
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <Avatar className={`w-10 h-10 ${client.avatarColor}`}>
+                        <Avatar className="w-8 h-8">
                           {client.avatar_url ? (
-                            <img src={client.avatar_url} alt={client.name} className="object-cover w-full h-full rounded-full" />
+                            <AvatarImage src={client.avatar_url} />
                           ) : (
-                            <AvatarFallback className="text-white font-bold">
+                            <AvatarFallback className={`${client.avatarColor} text-white text-xs font-bold`}>
                               {client.initials}
                             </AvatarFallback>
                           )}
                         </Avatar>
                         <div>
-                          <p className="font-semibold text-accent">{client.name}</p>
-                          <p className="text-xs text-accent/60">{client.email}</p>
+                          <p className="font-semibold text-accent text-sm">{client.name}</p>
+                          <p className="text-xs text-accent/50">{client.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="p-4">
-                      <Badge className={`${client.planColor} border-0 font-semibold capitalize`}>
-                        {client.plan}
+                      <Badge className={`${client.planColor} border-0 text-xs font-semibold`}>
+                        {client.planLabel}
                       </Badge>
                     </td>
-                    <td className="p-4 text-accent/70">{client.tenure}</td>
-                    <td className="p-4 text-accent/70">{client.activeProjects}</td>
-                    <td className="p-4 text-accent/70">{client.lastActivity}</td>
                     <td className="p-4">
-                      <div className="flex items-center justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                        <ActionButton icon={Eye} label="View" onClick={() => handleClientSelect(client)} />
-                        <ActionButton icon={MessageSquare} label="Message" />
-                        <ActionButton icon={MoreVertical} label="More" />
+                      <Badge className={`border-0 text-xs font-semibold ${
+                        client.status === "New"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>
+                        {client.status}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-sm text-accent/70">
+                      {client.activeProjects} active · {client.completed} done
+                    </td>
+                    <td className="p-4 text-sm text-accent/70">{client.tenure}</td>
+                    <td className="p-4">
+                      <div className="flex justify-end">
+                        <ActionButton
+                          icon={Eye}
+                          label="View"
+                          onClick={(e) => { e.stopPropagation(); handleSelect(client); }}
+                        />
                       </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
+            {filtered.length === 0 && (
+              <div className="p-12 text-center">
+                <p className="text-accent/60">
+                  {clients.length === 0 ? "No clients yet." : "No clients match your search."}
+                </p>
+              </div>
+            )}
           </div>
 
-          {filteredClients.length === 0 && (
-            <div className="hidden lg:block bg-tertiary rounded-2xl p-12 text-center">
-              <p className="text-accent/60">No clients found matching your criteria.</p>
-            </div>
-          )}
-        </div>
-      </div>
+          {/* Mobile cards */}
+          <div className="lg:hidden space-y-4">
+            {filtered.map((client) => (
+              <div
+                key={client.id}
+                className="bg-tertiary rounded-2xl p-4 space-y-3 cursor-pointer"
+                onClick={() => handleSelect(client)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="w-9 h-9">
+                      {client.avatar_url ? (
+                        <AvatarImage src={client.avatar_url} />
+                      ) : (
+                        <AvatarFallback className={`${client.avatarColor} text-white text-sm font-bold`}>
+                          {client.initials}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-accent text-sm">{client.name}</p>
+                      <p className="text-xs text-accent/60">{client.email}</p>
+                    </div>
+                  </div>
+                  <Badge className={`${client.planColor} border-0 text-xs font-semibold`}>
+                    {client.planLabel}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between text-xs text-accent/60">
+                  <span>{client.activeProjects} active · {client.completed} done</span>
+                  <span>Since {client.tenure}</span>
+                </div>
+              </div>
+            ))}
 
-      {/* Mobile detail sheet — identical to original */}
-      <div
-        className={`
-          lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-t border-gray-200 rounded-t-3xl
-          transition-transform duration-300 ease-out shadow-2xl
-          ${mobileDetailOpen ? "translate-y-0" : "translate-y-full"}
-        `}
-        style={{ maxHeight: "80vh" }}
-      >
-        <div className="h-full overflow-y-auto">
-          {selectedClient && (
-            <ClientDetail
-              client={selectedClient}
-              onBack={() => setMobileDetailOpen(false)}
-              isMobile={true}
+            {filtered.length === 0 && (
+              <div className="bg-tertiary rounded-2xl p-12 text-center">
+                <p className="text-accent/60">
+                  {clients.length === 0 ? "No clients yet." : "No clients match your search."}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile slide-up detail panel */}
+          <div
+            className={`lg:hidden fixed inset-x-0 bottom-0 z-40 bg-white rounded-t-2xl shadow-2xl transition-transform duration-300 ${
+              mobileDetailOpen ? "translate-y-0" : "translate-y-full"
+            }`}
+            style={{ maxHeight: "80vh" }}
+          >
+            <div className="h-full overflow-y-auto">
+              {selectedClient && (
+                <ClientDetail client={selectedClient} onBack={handleBack} isMobile />
+              )}
+            </div>
+          </div>
+
+          {mobileDetailOpen && (
+            <div
+              className="lg:hidden fixed inset-0 bg-black/60 z-30"
+              onClick={handleBack}
             />
           )}
+
+          {selectedClient && !mobileDetailOpen && (
+            <button
+              onClick={() => setMobileDetailOpen(true)}
+              className="lg:hidden fixed bottom-6 right-6 z-20 p-4 rounded-full bg-primary shadow-lg"
+            >
+              <ChevronUp className="w-5 h-5 text-white" />
+            </button>
+          )}
         </div>
       </div>
-
-      {mobileDetailOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-black/60 z-30"
-          onClick={() => setMobileDetailOpen(false)}
-        />
-      )}
-
-      {selectedClient && !mobileDetailOpen && (
-        <button
-          onClick={() => setMobileDetailOpen(true)}
-          className="lg:hidden fixed bottom-6 right-6 z-20 p-4 rounded-full bg-primary shadow-lg hover:bg-primary/90 transition-colors"
-        >
-          <ChevronUp className="w-5 h-5 text-white" />
-        </button>
-      )}
     </div>
   );
 }

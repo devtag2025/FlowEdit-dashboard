@@ -1,7 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
-
-const supabase = createClient();
-
+import { supabase } from "@/lib/supabase/client";
 // ─── CLIENT: Fetch own projects ───
 export async function fetchClientProjects(userId) {
   const { data, error } = await supabase

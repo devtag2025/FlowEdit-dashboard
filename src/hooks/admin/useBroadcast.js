@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import { fetchBroadcasts } from "@/lib/queries/broadcast";
 
 const AUDIENCE_COLORS = {
@@ -68,8 +68,6 @@ export function useBroadcasts() {
   useEffect(() => {
     // Initial fetch
     load();
-
-    const supabase = createClient();
 
     // Subscribe to any change on the broadcasts table
     const channel = supabase

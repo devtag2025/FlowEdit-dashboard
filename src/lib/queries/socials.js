@@ -1,6 +1,5 @@
-import { createClient } from "@/lib/supabase/client";
+import supabase from "@/lib/supabase/client";
 import { PLATFORMS } from "@/constants/admin/social";
-const supabase = createClient();
 
 
 
@@ -15,7 +14,7 @@ export async function fetchSocialPlatforms() {
 
   if (error) throw error;
 
-  
+
   return PLATFORMS.map((platform) => {
     const existing = (data || []).find((r) => r.platform === platform);
     return existing || {

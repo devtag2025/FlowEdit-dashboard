@@ -1,37 +1,27 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  : null;
-
-
-
-/**
- * Creates a Stripe checkout session.
- * Passes the current user's email + profile id into metadata so the webhook
- * can reliably find and update the right profile row.
- */
+import { supabase } from "@/lib/supabase/client";
 export async function createCheckoutSession(plan, profileId, stripeCustomerId) {
   // Try to get the currently logged-in user's email
-  let email = null;
-  let resolvedProfileId = profileId ?? null;
+  let email = null
+  let resolvedProfileId = profileId ?? null
 
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
     if (user) {
-      email = user.email ?? null;
+      email = user.email ?? null
 
       // Also try to get the profile id if not supplied
       if (!resolvedProfileId) {
         const { data: profile } = await supabase
-          .from("profiles")
-          .select("id, stripe_customer_id")
-          .eq("id", user.id)
-          .maybeSingle();
+          .from('profiles')
+          .select('id, stripe_customer_id')
+          .eq('id', user.id)
+          .maybeSingle()
 
         if (profile) {
-          resolvedProfileId   = profile.id;
-          stripeCustomerId  ??= profile.stripe_customer_id;
+          resolvedProfileId = profile.id
+          stripeCustomerId ??= profile.stripe_customer_id
         }
       }
     }
@@ -39,33 +29,35 @@ export async function createCheckoutSession(plan, profileId, stripeCustomerId) {
     // Not logged in — fine, continue without email pre-fill
   }
 
-  const res = await fetch("/api/stripe/checkout", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
+  const res = await fetch('/api/stripe/checkout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       plan,
-      profileId:        resolvedProfileId,
+      profileId: resolvedProfileId,
       stripeCustomerId: stripeCustomerId ?? null,
-      email,            // ← new: passed to checkout and into Stripe metadata
+      email, // ← new: passed to checkout and into Stripe metadata
     }),
-  });
+  })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || "Failed to create checkout session");
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || 'Failed to create checkout session')
   }
 
-  return res.json();
+  return res.json()
 }
 export async function fetchStripeInvoices(stripeCustomerId) {
   if (!stripeCustomerId) {
-    throw new Error("Customer ID not available");
+    throw new Error('Customer ID not available')
   }
 
-  const response = await fetch(`/api/stripe/invoices?customer_id=${encodeURIComponent(stripeCustomerId)}`);
+  const response = await fetch(
+    `/api/stripe/invoices?customer_id=${encodeURIComponent(stripeCustomerId)}`
+  )
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Failed to fetch invoices");
+    const error = await response.json()
+    throw new Error(error.message || 'Failed to fetch invoices')
   }
-  return response.json();
+  return response.json()
 }

@@ -6,7 +6,7 @@ import NotificationDetail from "@/components/notification/NotificationDetail";
 import React, { useState, useEffect } from "react";
 import { fetchNotifications, markAsRead, markAllAsRead } from "@/lib/queries/notifications";
 import { fetchUserProfile } from "@/lib/queries/projects";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import Loader from "@/components/common/Loader";
 
 const NotificationPage = () => {
@@ -32,7 +32,6 @@ const NotificationPage = () => {
           setNotifications(data || []);
 
           // Subscribe to new notifications in realtime
-          const supabase = createClient();
           channel = supabase
             .channel("notifications-page")
             .on(
@@ -54,7 +53,6 @@ const NotificationPage = () => {
 
     return () => {
       if (channel) {
-        const supabase = createClient();
         supabase.removeChannel(channel);
       }
     };

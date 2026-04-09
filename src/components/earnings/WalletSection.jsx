@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link2, CheckCircle, Loader2, AlertCircle } from "lucide-react";
-import { fetchConnectStatus, startConnectOnboarding } from "@/lib/queries/earnings";
+import { fetchConnectStatus,startConnectOnboarding } from "@/lib/queries/earnings";
 import { fetchProfile } from "@/lib/queries/profile";
 import { useSearchParams } from "next/navigation";
 

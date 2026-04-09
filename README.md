@@ -92,7 +92,7 @@ These pages have UI built but use mock data from `src/data/`. The DB tables and 
 - **Social platform tracking** (`src/app/dashboard/client/social/page.jsx`) — static data from `src/data/social.js`, needs to connect to `social_platforms` table (manual tracking only, no OAuth in v1)
 
 ### Module 6: Contractor Features
-
+s
 Same situation — UI exists, mock data, DB tables ready.
 
 - **Earnings** (`src/app/dashboard/contractor/earnings/page.jsx`) — has 2 tabs (Payouts, Wallet) but empty shells, needs to connect to `contractor_payments` table

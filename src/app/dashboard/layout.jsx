@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase/client";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import {
@@ -68,7 +69,7 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     let channel;
     const init = async () => {
-      const supabase = createClient();
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
@@ -105,7 +106,6 @@ export default function DashboardLayout({ children }) {
 
     return () => {
       if (channel) {
-        const supabase = createClient();
         supabase.removeChannel(channel);
       }
     };
@@ -134,7 +134,6 @@ export default function DashboardLayout({ children }) {
   const onLogout = async () => {
     setIsLoading(true);
     try {
-      const supabase = createClient();
       await supabase.auth.signOut();
       router.push("/login");
     } catch (error) {

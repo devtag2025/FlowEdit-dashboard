@@ -4,10 +4,10 @@ let stripePromise;
 
 export function getStripe() {
   if (!stripePromise) {
-    if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
-      throw new Error("NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined");
+    if (!process.env.STRIPE_PUBLISHABLE_KEY) {
+      throw new Error("STRIPE_PUBLISHABLE_KEY is not defined");
     }
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+    stripePromise = loadStripe(process.env.STRIPE_PUBLISHABLE_KEY);
   }
   return stripePromise;
 }

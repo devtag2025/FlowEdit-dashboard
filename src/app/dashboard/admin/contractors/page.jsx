@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { fetchContractorContracts } from "@/lib/queries/earnings";
+import { fetchContractorContracts } from "../../../../lib/queries/earnings";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

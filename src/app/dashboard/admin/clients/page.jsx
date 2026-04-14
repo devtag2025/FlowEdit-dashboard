@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import EmptyClientDetail from "@/components/clients/EmptyClient";
 import ClientDetail from "@/components/clients/ClientDetail";
-import { fetchClients } from "@/lib/queries/clients";
+import { fetchAllClients } from "@/lib/queries/clients";
 import { Search, ChevronUp } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -64,7 +64,7 @@ export default function ClientsPage() {
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchClients();
+      const data = await fetchAllClients();
       setClients(
         data.map((c, i) => ({
           ...c,

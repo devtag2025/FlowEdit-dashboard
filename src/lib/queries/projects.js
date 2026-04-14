@@ -377,33 +377,18 @@ export async function fetchUserProfile() {
     return { ...profileById, auth_id: user.id };
   }
 
-  // ── 3. Fallback: look up by email (auth trigger hasn't fired yet) ──────────
-  if (user.email) {
-    const { data: profileByEmail } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("email", user.email)
-      .maybeSingle();
 
-    if (profileByEmail) {
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({ id: user.id })
-        .eq("id", profileByEmail.id);
+if (user.email) {
+  const { data: profileByEmail } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", user.email)
+    .maybeSingle();
 
-      if (updateError) {
-        await supabase
-          .from("profiles")
-          .upsert({ ...profileByEmail, id: user.id });
-        await supabase
-          .from("profiles")
-          .delete()
-          .eq("id", profileByEmail.id);
-      }
-
-      return { ...profileByEmail, id: user.id, auth_id: user.id };
-    }
+  if (profileByEmail) {
+    return { ...profileByEmail, auth_id: user.id };
   }
+}
 
   return null;
 }

@@ -3,15 +3,14 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link2, CheckCircle, Loader2, AlertCircle } from "lucide-react";
-import { fetchConnectStatus,startConnectOnboarding } from "@/lib/queries/earnings";
-import { fetchProfile } from "@/lib/queries/profile";
+import { fetchConnectStatus, startConnectOnboarding } from "@/lib/queries/earnings";
 import { useSearchParams } from "next/navigation";
 
-const WalletSection = () => {
-  const [profile, setProfile]             = useState(null);
+// ✅ Accepts profile as prop — no internal fetchProfile() / getUser() call
+const WalletSection = ({ profile }) => {
   const [connectStatus, setConnectStatus] = useState(null);
-  const [loading, setLoading]             = useState(true);
-  const [connecting, setConnecting]       = useState(false);
+  const [loading, setConnecting]          = useState(false);
+  const [loadingStatus, setLoadingStatus] = useState(true);
   const [statusMsg, setStatusMsg]         = useState(null);
   const searchParams                      = useSearchParams();
 
@@ -24,29 +23,23 @@ const WalletSection = () => {
     }
   }, [searchParams]);
 
+  // ✅ Only fetch connect status — profile already provided via prop
   useEffect(() => {
-    const load = async () => {
-      try {
-        const p = await fetchProfile();
-        setProfile(p);
-        if (p?.id) {
-          const status = await fetchConnectStatus(p.id);
-          setConnectStatus(status);
-        }
-      } catch (err) {
-        console.error("Failed to load wallet:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+    if (!profile?.id) return;
+    fetchConnectStatus(profile.id)
+      .then(setConnectStatus)
+      .catch((err) => console.error("Failed to load connect status:", err))
+      .finally(() => setLoadingStatus(false));
+  }, [profile?.id]);
 
   const handleConnect = async () => {
     if (!profile) return;
     try {
       setConnecting(true);
-      const { url } = await startConnectOnboarding({ profileId: profile.id, email: profile.email });
+      const { url } = await startConnectOnboarding({
+        profileId: profile.id,
+        email:     profile.email,
+      });
       window.location.href = url;
     } catch (err) {
       setStatusMsg({ type: "error", text: err.message || "Failed to start onboarding." });
@@ -57,12 +50,12 @@ const WalletSection = () => {
   const isConnected = connectStatus?.connected;
 
   const payoutInfo = [
-    { title: "Default Payout Method",  value: isConnected ? "Stripe Express" : "—",         desc: isConnected ? "Connected via Stripe" : "Not configured" },
-    { title: "Payout Schedule",        value: isConnected ? "Automatic"       : "—",         desc: isConnected ? "Managed by Stripe"    : "Connect to enable" },
-    { title: "Minimum Threshold",      value: "£1.00",                                       desc: "Auto-payout enabled" },
+    { title: "Default Payout Method", value: isConnected ? "Stripe Express" : "—",       desc: isConnected ? "Connected via Stripe"          : "Not configured"          },
+    { title: "Payout Schedule",       value: isConnected ? "Automatic"      : "—",       desc: isConnected ? "Managed by Stripe"             : "Connect to enable"       },
+    { title: "Minimum Threshold",     value: "£1.00",                                    desc: "Auto-payout enabled"                                                     },
   ];
 
-  if (loading) {
+  if (loadingStatus) {
     return (
       <Card className="bg-tertiary pt-8 md:rounded-3xl">
         <CardContent className="flex items-center justify-center py-20">
@@ -84,9 +77,9 @@ const WalletSection = () => {
 
         {statusMsg && (
           <div className={`flex items-start gap-3 p-4 rounded-xl text-sm font-medium ${
-            statusMsg.type === "success" ? "bg-green-50 text-green-700" :
-            statusMsg.type === "warning" ? "bg-amber-50 text-amber-700" :
-            "bg-red-50 text-red-600"
+            statusMsg.type === "success" ? "bg-green-50 text-green-700"  :
+            statusMsg.type === "warning" ? "bg-amber-50 text-amber-700"  :
+                                          "bg-red-50 text-red-600"
           }`}>
             {statusMsg.type === "success"
               ? <CheckCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -99,12 +92,20 @@ const WalletSection = () => {
         <div className="flex flex-col space-y-4 md:space-y-3 bg-white rounded-xl p-4 md:p-6">
           <div className="flex md:items-center justify-between flex-col gap-2 md:flex-row">
             <div>
-              <h3 className="text-lg md:text-xl text-accent font-bold">Stripe Connection Status</h3>
+              <h3 className="text-lg md:text-xl text-accent font-bold">
+                Stripe Connection Status
+              </h3>
               <p className="text-slate-700 text-sm md:text-base">
-                {isConnected ? "Your account is connected and payouts are enabled." : "Connect your account to enable payouts."}
+                {isConnected
+                  ? "Your account is connected and payouts are enabled."
+                  : "Connect your account to enable payouts."}
               </p>
             </div>
-            <span className={`w-fit text-xs py-1 md:text-sm md:py-2 px-4 rounded-full font-bold ${isConnected ? "bg-green-100 text-green-600" : "bg-orange-200 text-orange-500"}`}>
+            <span className={`w-fit text-xs py-1 md:text-sm md:py-2 px-4 rounded-full font-bold ${
+              isConnected
+                ? "bg-green-100 text-green-600"
+                : "bg-orange-200 text-orange-500"
+            }`}>
               {isConnected ? "Connected" : "Not Connected"}
             </span>
           </div>
@@ -118,10 +119,10 @@ const WalletSection = () => {
             <>
               <Button
                 onClick={handleConnect}
-                disabled={connecting}
+                disabled={loading}
                 className="md:w-fit flex items-center justify-center gap-2 bg-primary px-4 py-3 rounded-full shadow-lg font-bold text-white hover:shadow-xl disabled:opacity-60"
               >
-                {connecting
+                {loading
                   ? <><Loader2 className="w-4 h-4 animate-spin" /> Connecting...</>
                   : <><Link2 className="w-4 h-4" /> Connect Stripe Account</>
                 }
@@ -134,13 +135,19 @@ const WalletSection = () => {
         </div>
 
         <div>
-          <h1 className="text-accent font-bold text-xl md:text-2xl mb-8">Payout Information</h1>
+          <h1 className="text-accent font-bold text-xl md:text-2xl mb-8">
+            Payout Information
+          </h1>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {payoutInfo.map((info) => (
               <Card key={info.title} className="bg-white border-0 rounded-3xl">
                 <CardContent className="flex flex-col gap-5">
-                  <p className="uppercase text-slate-700 text-xs md:text-sm font-bold">{info.title}</p>
-                  <h2 className="text-2xl md:text-3xl text-accent font-bold">{info.value}</h2>
+                  <p className="uppercase text-slate-700 text-xs md:text-sm font-bold">
+                    {info.title}
+                  </p>
+                  <h2 className="text-2xl md:text-3xl text-accent font-bold">
+                    {info.value}
+                  </h2>
                   <p className="text-slate-700">{info.desc}</p>
                 </CardContent>
               </Card>

@@ -20,17 +20,19 @@ function formatDate(dateStr) {
   });
 }
 
-export default function Payout() {
+// ✅ Accepts profile as prop — no internal getUser() call
+export default function Payout({ profile }) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
 
   useEffect(() => {
+    if (!profile?.id) return;
     fetchContractorEarnings()
       .then(setPayments)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [profile?.id]);
 
   if (loading) {
     return (
@@ -94,18 +96,22 @@ export default function Payout() {
         <CardContent className="p-0">
           <div className="px-6 py-4 border-b border-accent/10">
             <h2 className="font-semibold text-accent">Payment History</h2>
-            <p className="text-xs text-accent/50">{count} transaction{count !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-accent/50">
+              {count} transaction{count !== 1 ? "s" : ""}
+            </p>
           </div>
 
           {payments.length === 0 ? (
             <div className="py-16 text-center">
               <TrendingUp className="w-8 h-8 text-accent/20 mx-auto mb-3" />
               <p className="text-accent/50 text-sm">No payments yet.</p>
-              <p className="text-accent/40 text-xs mt-1">Payments from admin will appear here.</p>
+              <p className="text-accent/40 text-xs mt-1">
+                Payments from admin will appear here.
+              </p>
             </div>
           ) : (
             <>
-              {/* Desktop */}
+              {/* Desktop table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
@@ -118,7 +124,7 @@ export default function Payout() {
                   </thead>
                   <tbody>
                     {payments.map((p) => (
-                      <tr key={p.id} className="border-b border-accent/10 hover:bg-accent/5">
+                      <tr key={p.id} className="border-b border-accent/5 hover:bg-accent/5 transition-colors">
                         <td className="px-6 py-4 text-sm text-accent">
                           {p.description || "Payment"}
                         </td>
@@ -126,7 +132,7 @@ export default function Payout() {
                           {formatCurrency(p.amount, p.currency)}
                         </td>
                         <td className="px-6 py-4">
-                          <Badge className={`${statusColor(p.status)} border-0 text-xs capitalize`}>
+                          <Badge className={`${statusColor(p.status)} border-0 capitalize`}>
                             {p.status}
                           </Badge>
                         </td>
@@ -139,19 +145,23 @@ export default function Payout() {
                 </table>
               </div>
 
-              {/* Mobile */}
+              {/* Mobile cards */}
               <div className="md:hidden divide-y divide-accent/10">
                 {payments.map((p) => (
-                  <div key={p.id} className="px-4 py-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-accent">{p.description || "Payment"}</p>
-                      <p className="text-xs text-accent/50 mt-0.5">{formatDate(p.created_at)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-accent">{formatCurrency(p.amount, p.currency)}</p>
-                      <Badge className={`${statusColor(p.status)} border-0 text-xs capitalize mt-1`}>
+                  <div key={p.id} className="px-4 py-4 space-y-2">
+                    <div className="flex justify-between items-start">
+                      <p className="text-sm font-medium text-accent">
+                        {p.description || "Payment"}
+                      </p>
+                      <Badge className={`${statusColor(p.status)} border-0 capitalize text-xs`}>
                         {p.status}
                       </Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <p className="text-sm font-bold text-accent">
+                        {formatCurrency(p.amount, p.currency)}
+                      </p>
+                      <p className="text-xs text-accent/50">{formatDate(p.created_at)}</p>
                     </div>
                   </div>
                 ))}

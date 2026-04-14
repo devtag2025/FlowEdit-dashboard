@@ -1,9 +1,7 @@
 import { supabase } from "@/lib/supabase/client";
 
 export async function fetchMyPayments() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -19,7 +17,6 @@ export async function fetchMyPayments() {
 export async function fetchEarningsSummary() {
   const payments = await fetchMyPayments();
   const paid = payments.filter((p) => p.status === "paid");
-
   const now = new Date();
   const thisMonth = paid.filter((p) => {
     const d = new Date(p.created_at);
@@ -28,7 +25,6 @@ export async function fetchEarningsSummary() {
   const thisYear = paid.filter(
     (p) => new Date(p.created_at).getFullYear() === now.getFullYear()
   );
-
   return {
     thisMonth:     thisMonth.reduce((sum, p) => sum + p.amount, 0),
     yearToDate:    thisYear.reduce((sum, p) => sum + p.amount, 0),
@@ -43,7 +39,6 @@ export async function fetchContractorPayments(contractorId) {
     .select("*")
     .eq("contractor_id", contractorId)
     .order("created_at", { ascending: false });
-
   if (error) throw error;
   return data || [];
 }
@@ -75,12 +70,8 @@ export async function createPayment({ contractorId, adminId, amount, currency, d
   return data;
 }
 
-// ── Contracts ─────────────────────────────────────────────────────────────────
-
 export async function fetchContractorContracts() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -94,23 +85,33 @@ export async function fetchContractorContracts() {
   return data || [];
 }
 
-// ── Onboarding Steps ──────────────────────────────────────────────────────────
+export async function signContract(contractId) {
+  const { data, error } = await supabase
+    .from("contractor_documents")
+    .update({
+      status:    "signed",
+      signed_at: new Date().toISOString(),
+    })
+    .eq("id", contractId)
+    .select("id, status, signed_at")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
 
 export async function fetchOnboardingSteps() {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
     .from("onboarding_steps")
     .select("id, step_key, label, completed, completed_at")
     .eq("contractor_id", user.id)
-    .order("id", { ascending: true });
+    .order("created_at", { ascending: true }); // ✅ created_at not id
 
   if (error) throw error;
 
-  // Fallback to default steps if none exist in DB yet
   if (!data || data.length === 0) {
     return [
       { id: 1, label: "Start",    completed: false },
@@ -125,4 +126,42 @@ export async function fetchOnboardingSteps() {
   }
 
   return data;
+}
+
+export async function fetchPolicies() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("contractor_documents")
+    .select("id, title, file_url, status, created_at")
+    .eq("contractor_id", user.id)
+    .eq("type", "policy")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+
+export function formatCurrency(amountPence, currency = "gbp") {
+  return new Intl.NumberFormat("en-GB", {
+    style:    "currency",
+    currency: currency.toUpperCase(),
+  }).format(amountPence / 100);
+}
+
+export function earningsSummary(payments) {
+  const paid    = payments.filter((p) => p.status === "paid");
+  const pending = payments.filter((p) => p.status === "pending");
+  return {
+    total:   paid.reduce((s, p) => s + p.amount, 0),
+    paid:    paid.reduce((s, p) => s + p.amount, 0),
+    pending: pending.reduce((s, p) => s + p.amount, 0),
+    count:   paid.length,
+  };
+}
+
+export async function fetchContractorEarnings() {
+  return fetchMyPayments();
 }

@@ -1,5 +1,6 @@
 import { createBulkNotifications } from '@/lib/queries/notifications'
-import { supabase } from '@/lib/supabase/client'
+import { getSupabaseClient } from "../supabase/client";
+const supabase = getSupabaseClient()
 
 function stripHtml(html) {
   if (!html) return ''

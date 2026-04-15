@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Edit, Mail, Upload, Send, CheckCircle2, DollarSign } from "lucide-react";
+import { Clock, Edit, Mail, CheckCircle2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PayContractorModal from "@/components/earnings/PayContractorModal";
 
@@ -109,18 +109,13 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
             </div>
           </div>
 
+          {/* Contact */}
           <div className="bg-tertiary rounded-xl p-3">
-            <p className="text-xs font-semibold text-accent uppercase mb-2">Contract Management</p>
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1 border-2 border-tertiary text-accent hover:bg-tertiary h-9 text-xs font-semibold rounded-lg">
-                <Upload className="w-3.5 h-3.5 mr-1.5" />
-                Upload
-              </Button>
-              <Button className="flex-1 bg-primary hover:bg-primary/90 text-tertiary h-9 text-xs font-semibold rounded-lg">
-                <Send className="w-3.5 h-3.5 mr-1.5" />
-                Send
-              </Button>
-            </div>
+            <p className="text-xs font-semibold text-accent uppercase mb-2">Contact</p>
+            <button className="flex items-center gap-2 text-primary hover:text-primary/80 w-full p-2 rounded-lg hover:bg-accent/5 transition-colors">
+              <Mail className="w-4 h-4" />
+              <span className="text-sm font-medium">Message Contractor</span>
+            </button>
           </div>
 
           {/* ── Pay button (mobile) ── */}
@@ -242,21 +237,9 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
           </div>
         </div>
 
-        {/* Contract */}
+        {/* Contact */}
         <div className="bg-tertiary rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-semibold text-accent/70 uppercase">Contract Management</h4>
-            <div className="flex gap-3">
-              <Button variant="outline" className="border-accent/20 text-accent hover:bg-accent/5 gap-2">
-                <Upload className="w-4 h-4" />
-                Upload New Contract
-              </Button>
-              <Button className="bg-primary hover:bg-primary/90 text-tertiary gap-2">
-                <Send className="w-4 h-4" />
-                Send Contract
-              </Button>
-            </div>
-          </div>
+          <h4 className="text-sm font-semibold text-accent/70 uppercase mb-4">Contact</h4>
           <div className="p-4 bg-accent/5 rounded-lg">
             <button className="flex items-center gap-2 text-primary hover:text-primary/80">
               <Mail className="w-4 h-4" />

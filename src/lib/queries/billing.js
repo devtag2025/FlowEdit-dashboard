@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabase/client";
+import { getSupabaseClient } from "../supabase/client"
+const supabase = getSupabaseClient()
 export async function createCheckoutSession(plan, profileId, stripeCustomerId) {
   // Try to get the currently logged-in user's email
   let email = null

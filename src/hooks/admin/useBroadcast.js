@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase/client";
 import { fetchBroadcasts } from "@/lib/queries/broadcast";
+
+import { useCallback, useEffect, useState } from "react";
+import { getSupabaseClient } from "../../lib/supabase/client";
+const supabase = getSupabaseClient()
 
 const AUDIENCE_COLORS = {
   Contractors: "bg-primary/10 text-primary",

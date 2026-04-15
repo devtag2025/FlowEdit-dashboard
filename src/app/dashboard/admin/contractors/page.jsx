@@ -1,141 +1,383 @@
 "use client";
-import { useEffect, useState } from "react";
-import { fetchContractorContracts } from "../../../../lib/queries/earnings";
-import { Button } from "@/components/common/Button";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState, useEffect, useCallback } from "react";
+import EmptyContractorDetail from "@/components/contractors/EmptyContractor";
+import ContractorDetail from "@/components/contractors/ContractorDetail";
+import { fetchContractors } from "@/lib/queries/contractors";
+import {
+  Search,
+  Eye,
+  MessageSquare,
+  MoreVertical,
+  ChevronUp,
+} from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Download, FileText, Loader2, FileX } from "lucide-react";
+import { ActionButton } from "@/components/Dashboard/StatusBadge";
 import Loader from "@/components/common/Loader";
 
+const filters = ["All", "New", "Inactive"];
+
+const AVATAR_COLORS = [
+  "bg-purple-500",
+  "bg-blue-500",
+  "bg-pink-500",
+  "bg-green-500",
+  "bg-orange-500",
+  "bg-indigo-500",
+];
+
 function statusColor(status) {
-  if (status === "active" || status === "signed") return "bg-green-100 text-green-700";
-  if (status === "pending") return "bg-yellow-100 text-yellow-700";
-  if (status === "expired") return "bg-gray-100 text-gray-600";
-  return "bg-blue-100 text-blue-700";
+  if (status === "Active") return "bg-green-100 text-green-700";
+  if (status === "New") return "bg-blue-100 text-blue-700";
+  if (status === "Inactive") return "bg-gray-100 text-gray-700";
+  return "bg-yellow-100 text-yellow-700";
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return null;
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
-  });
-}
+export default function ContractorsPage() {
+  const [contractors, setContractors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedContractor, setSelectedContractor] = useState(null);
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
-export default function Contracts() {
-  const [contracts, setContracts] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await fetchContractors();
+      setContractors(
+        data.map((c, i) => ({
+          ...c,
+          avatarColor: AVATAR_COLORS[i % AVATAR_COLORS.length],
+          statusColor: statusColor(c.status),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to load contractors:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchContractorContracts()
-      .then(setContracts)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    load();
+  }, [load]);
+
+  const filteredContractors = contractors.filter((contractor) => {
+    const matchesFilter =
+      activeFilter === "All" ||
+      (activeFilter === "New" && contractor.status === "New") ||
+      (activeFilter === "Inactive" && contractor.status === "Inactive");
+    const matchesSearch =
+      contractor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contractor.email.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const handleContractorSelect = (contractor) => {
+    setSelectedContractor(contractor);
+    setMobileDetailOpen(true);
+  };
+
+  const handleBackToList = () => {
+    setSelectedContractor(null);
+    setMobileDetailOpen(false);
+  };
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-secondary">
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
         <Loader />
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen pt-2 px-3 md:px-8 md:py-5 pb-10 space-y-6">
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-600 text-sm">
-          {error}
+    <div className="min-h-screen bg-secondary p-4 md:p-8">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-accent mb-1">
+            Payouts
+          </h1>
+          <p className="text-sm text-accent/60">
+            View contractors and manage payments
+          </p>
         </div>
-      )}
 
-      {contracts.length === 0 && !error ? (
-        <Card className="bg-tertiary rounded-xl md:rounded-3xl">
-          <CardContent className="flex flex-col items-center text-center py-16 gap-4">
-            <FileX className="w-10 h-10 text-accent/20" />
-            <div>
-              <h2 className="text-lg font-semibold text-accent">No contracts yet</h2>
-              <p className="text-accent/50 text-sm mt-1">
-                Your contracts will appear here once they have been uploaded by FlowEdit admin.
+        {/* Desktop detail panel */}
+        <div className="hidden lg:block">
+          {selectedContractor ? (
+            <ContractorDetail
+              contractor={selectedContractor}
+              onBack={handleBackToList}
+            />
+          ) : (
+            <EmptyContractorDetail />
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* Filters + Search */}
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            <div className="flex gap-2 flex-wrap">
+              {filters.map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    activeFilter === filter
+                      ? "bg-primary text-white shadow-md"
+                      : "bg-tertiary text-accent hover:bg-accent/5"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative w-full lg:w-80 bg-tertiary rounded-2xl">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
+              <Input
+                type="text"
+                placeholder="Search Contractors"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-10 bg-tertiary border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="lg:hidden space-y-4">
+            {filteredContractors.map((contractor) => (
+              <div
+                key={contractor.id}
+                onClick={() => handleContractorSelect(contractor)}
+                className="bg-tertiary rounded-2xl p-4 cursor-pointer hover:shadow-lg transition-shadow"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar className={`w-12 h-12 ${contractor.avatarColor}`}>
+                      {contractor.avatar_url ? (
+                        <img
+                          src={contractor.avatar_url}
+                          alt={contractor.name}
+                          className="object-cover w-full h-full rounded-full"
+                        />
+                      ) : (
+                        <AvatarFallback className="text-white font-bold">
+                          {contractor.initials}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-accent">
+                        {contractor.name}
+                      </p>
+                      <p className="text-sm text-accent/60">
+                        {contractor.email}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={`${contractor.statusColor} border-0 font-semibold`}
+                  >
+                    {contractor.status}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <p className="text-xs text-accent/60 mb-1">Status</p>
+                    <p className="text-sm font-medium text-accent">
+                      {contractor.status}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-accent/60 mb-1">
+                      Active Projects
+                    </p>
+                    <p className="text-sm font-medium text-accent">
+                      {contractor.activeProjects}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-accent/60 mb-1">Last Activity</p>
+                    <p className="text-sm font-medium text-accent">
+                      {contractor.lastActivity}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  className="flex gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    onClick={() => handleContractorSelect(contractor)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    <span className="text-sm font-medium">View</span>
+                  </button>
+                  <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
+                    <MessageSquare className="w-4 h-4" />
+                    <span className="text-sm font-medium">Message</span>
+                  </button>
+                  <button className="px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {filteredContractors.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 bg-tertiary rounded-2xl">
+                <Search className="w-6 h-6 text-accent/50 mb-2" />
+                <p className="text-accent/60 text-sm">No contractors found</p>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop table */}
+          <div className="hidden lg:block bg-tertiary rounded-2xl overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-accent/10">
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                    Contractor
+                  </th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                    Status
+                  </th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                    Active Projects
+                  </th>
+                  <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                    Last Activity
+                  </th>
+                  <th className="text-right p-4 text-accent/70 font-semibold uppercase text-xs">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredContractors.map((contractor) => (
+                  <tr
+                    key={contractor.id}
+                    onClick={() => handleContractorSelect(contractor)}
+                    className={`border-b border-accent/10 hover:bg-accent/5 transition-colors cursor-pointer ${
+                      selectedContractor?.id === contractor.id
+                        ? "bg-accent/5"
+                        : ""
+                    }`}
+                  >
+                    <td className="p-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          className={`w-10 h-10 ${contractor.avatarColor}`}
+                        >
+                          {contractor.avatar_url ? (
+                            <img
+                              src={contractor.avatar_url}
+                              alt={contractor.name}
+                              className="object-cover w-full h-full rounded-full"
+                            />
+                          ) : (
+                            <AvatarFallback className="text-white font-bold">
+                              {contractor.initials}
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div>
+                          <p className="font-semibold text-accent">
+                            {contractor.name}
+                          </p>
+                          <p className="text-xs text-accent/60">
+                            {contractor.email}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <Badge
+                        className={`${contractor.statusColor} border-0 font-semibold`}
+                      >
+                        {contractor.status}
+                      </Badge>
+                    </td>
+                    <td className="p-4 text-accent/70">
+                      {contractor.activeProjects}
+                    </td>
+                    <td className="p-4 text-accent/70">
+                      {contractor.lastActivity}
+                    </td>
+                    <td className="p-4">
+                      <div
+                        className="flex items-center justify-end gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ActionButton
+                          icon={Eye}
+                          label="View"
+                          onClick={() => handleContractorSelect(contractor)}
+                        />
+                        <ActionButton icon={MessageSquare} label="Message" />
+                        <ActionButton icon={MoreVertical} label="More" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredContractors.length === 0 && (
+            <div className="hidden lg:block bg-tertiary rounded-2xl p-12 text-center">
+              <p className="text-accent/60">
+                No contractors found matching your criteria.
               </p>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        contracts.map((contract) => (
-          <Card key={contract.id} className="bg-tertiary rounded-xl md:rounded-3xl">
-            <CardContent className="flex flex-col space-y-6">
+          )}
+        </div>
+      </div>
 
-              {/* Header */}
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <h1 className="text-accent font-bold text-xl md:text-2xl">
-                  {contract.title || "Contractor Agreement"}
-                </h1>
-                <Badge className={`${statusColor(contract.status)} border-0 py-1.5 px-4 rounded-full font-bold text-sm capitalize`}>
-                  Status: {contract.status || "Active"}
-                </Badge>
-              </div>
+      {/* Mobile detail sheet */}
+      <div
+        className={`
+          lg:hidden fixed inset-x-0 bottom-0 z-40 bg-tertiary border-t border-gray-200 rounded-t-3xl
+          transition-transform duration-300 ease-out shadow-2xl
+          ${mobileDetailOpen ? "translate-y-0" : "translate-y-full"}
+        `}
+        style={{ maxHeight: "80vh" }}
+      >
+        <div className="h-full overflow-y-auto">
+          {selectedContractor && (
+            <ContractorDetail
+              contractor={selectedContractor}
+              onBack={() => setMobileDetailOpen(false)}
+              isMobile={true}
+            />
+          )}
+        </div>
+      </div>
 
-              {/* Signed date */}
-              {contract.signed_at && (
-                <p className="text-sm text-accent/50">
-                  Signed on {formatDate(contract.signed_at)}
-                </p>
-              )}
-
-              {/* Description */}
-              <p className="text-slate-700 md:px-2 text-justify text-sm md:text-base leading-relaxed">
-                This Contractor Agreement outlines the terms and conditions between
-                FlowEdit and the contractor for services rendered. The agreement
-                includes provisions for project scope, payment terms, intellectual
-                property rights, confidentiality obligations, and termination
-                clauses. Both parties agree to maintain professional standards and
-                meet all deadlines as specified in individual project briefs.
-              </p>
-
-              <p className="text-slate-700 md:px-2 text-justify text-sm md:text-base leading-relaxed">
-                The contractor agrees to provide high-quality work that meets or
-                exceeds client expectations, while FlowEdit commits to timely
-                payment for completed projects and providing necessary resources and
-                access to tools. This agreement is effective from the signing date
-                and remains active unless terminated by either party with
-                appropriate notice.
-              </p>
-
-              {/* Actions */}
-              <div className="flex flex-col md:flex-row gap-4">
-                {contract.file_url ? (
-                  <>
-                    <a
-                      href={contract.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 bg-primary px-6 py-3 rounded-full shadow-lg text-base font-medium text-white hover:bg-primary/90 hover:shadow-xl transition-all"
-                    >
-                      <FileText className="w-4 h-4 md:w-5 md:h-5" />
-                      View Contract (PDF)
-                    </a>
-                    <a
-                      href={contract.file_url}
-                      download
-                      className="flex items-center justify-center gap-2 px-6 py-3 border border-primary rounded-full font-bold text-primary hover:bg-primary hover:text-white transition-all"
-                    >
-                      <Download className="w-4 h-4 md:w-5 md:h-5" />
-                      Download Contract
-                    </a>
-                  </>
-                ) : (
-                  <p className="text-sm text-accent/40 italic">
-                    Contract file not yet uploaded.
-                  </p>
-                )}
-              </div>
-
-            </CardContent>
-          </Card>
-        ))
+      {mobileDetailOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 z-30"
+          onClick={() => setMobileDetailOpen(false)}
+        />
       )}
-    </main>
+
+      {selectedContractor && !mobileDetailOpen && (
+        <button
+          onClick={() => setMobileDetailOpen(true)}
+          className="lg:hidden fixed bottom-6 right-6 z-20 p-4 rounded-full bg-primary shadow-lg hover:bg-primary/90 transition-colors"
+        >
+          <ChevronUp className="w-5 h-5 text-white" />
+        </button>
+      )}
+    </div>
   );
 }

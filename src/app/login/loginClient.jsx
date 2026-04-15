@@ -1,10 +1,12 @@
 // src/app/login/LoginClient.jsx
 "use client";
 
-import { supabase } from "@/lib/supabase/client";
-import { useState } from "react";
-import { Loader2, CheckCircle } from "lucide-react";
+
+import { CheckCircle, Loader2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { useState } from "react";
+import { getSupabaseClient } from "../../lib/supabase/client";
+const supabase = getSupabaseClient()
 
 export default function LoginClient() {
   const [isLoading, setIsLoading] = useState(false);

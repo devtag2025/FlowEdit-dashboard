@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase/client";
+
+import { getSupabaseClient } from "../supabase/client"
+const supabase = getSupabaseClient()
 // ─── Fetch all contractors with assignment history ────────────────────────────
 export async function fetchContractors() {
   const { data, error } = await supabase

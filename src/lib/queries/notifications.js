@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase/client";
+
+import { getSupabaseClient } from "../supabase/client";
+const supabase = getSupabaseClient()
 
 // ─── Fetch all notifications for a user ───
 export async function fetchNotifications(userId) {

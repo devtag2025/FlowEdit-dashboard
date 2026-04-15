@@ -1,32 +1,29 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase/client";
-import { usePathname } from "next/navigation";
-import Image from "next/image";
+import { getUnreadCount } from "@/lib/queries/notifications";
+
 import {
-  LayoutDashboard,
-  Settings,
-  LogOut,
-  Menu,
-  X,
-  Loader2,
   Bell,
-  NotebookIcon,
-  PencilRuler,
-  Share2,
   BriefcaseBusiness,
-  RadioIcon,
-  UserRoundIcon,
-  UsersRound,
-  House,
   DollarSign,
   FileText,
   FolderOpen,
+  House,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  Menu,
+  PencilRuler,
+  RadioIcon,
+  Share2,
+  UserCog,
+  X
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { getUnreadCount } from "@/lib/queries/notifications";
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getSupabaseClient } from "../../lib/supabase/client";
+const supabase = getSupabaseClient()
 
 const navigationConfig = {
   client: [
@@ -40,8 +37,9 @@ const navigationConfig = {
     { name: "Dashboard", href: "/dashboard/admin", icon: LayoutDashboard },
     { name: "Notifications", href: "/dashboard/admin/notification", icon: Bell },
     { name: "Broadcasts", href: "/dashboard/admin/broadcasts", icon: RadioIcon },
-    { name: "Clients", href: "/dashboard/admin/clients", icon: UserRoundIcon },
-    { name: "Contractors", href: "/dashboard/admin/contractors", icon: UsersRound },
+    { name: "Users", href: "/dashboard/admin/users", icon: UserCog },
+    { name: "Payouts", href: "/dashboard/admin/contractors", icon: DollarSign },
+    { name: "Contracts", href: "/dashboard/admin/contracts", icon: FileText },
   ],
   contractor: [
     { name: "Dashboard", href: "/dashboard/contractor", icon: House },
@@ -69,8 +67,9 @@ export default function DashboardLayout({ children }) {
   useEffect(() => {
     let channel;
     const init = async () => {
-
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
         const { data: profile } = await supabase
@@ -79,24 +78,38 @@ export default function DashboardLayout({ children }) {
           .eq("id", user.id)
           .single();
         setUserProfile(profile);
-        getUnreadCount(user.id).then(setUnreadCount).catch(() => setUnreadCount(0));
+        getUnreadCount(user.id)
+          .then(setUnreadCount)
+          .catch(() => setUnreadCount(0));
 
         // Subscribe to new notifications for this user
         channel = supabase
           .channel("notifications-bell")
           .on(
             "postgres_changes",
-            { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${user.id}`,
+            },
             () => {
               setUnreadCount((prev) => prev + 1);
             }
           )
           .on(
             "postgres_changes",
-            { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${user.id}`,
+            },
             () => {
               // Re-fetch count when notifications are marked as read
-              getUnreadCount(user.id).then(setUnreadCount).catch(() => setUnreadCount(0));
+              getUnreadCount(user.id)
+                .then(setUnreadCount)
+                .catch(() => setUnreadCount(0));
             }
           )
           .subscribe();
@@ -150,9 +163,12 @@ export default function DashboardLayout({ children }) {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         } lg:translate-x-0 w-72`}
       >
-        <div className="h-full flex flex-col bg-linear-to-b bg-primary  backdrop-blur-xl">
-          <div className="flex items-center justify-between px-20 pt-8 pb-6 ">
-            <Link href={`/dashboard/${role}`} className="flex items-center gap-3 group">
+        <div className="h-full flex flex-col bg-linear-to-b bg-primary backdrop-blur-xl">
+          <div className="flex items-center justify-between px-20 pt-8 pb-6">
+            <Link
+              href={`/dashboard/${role}`}
+              className="flex items-center gap-3 group"
+            >
               <span className="text-3xl font-extrabold font-onest">
                 FlowEdit
               </span>
@@ -211,69 +227,62 @@ export default function DashboardLayout({ children }) {
 
                   <span
                     className={`font-medium ${
-                      active
-                        ? "text-accent"
-                        : "text-white group-hover:text-tertiary/80"
+                      active ? "text-white" : "text-white/70 group-hover:text-white"
                     }`}
                   >
                     {item.name}
                   </span>
+
+                  {/* Notification badge */}
+                  {item.name.toLowerCase().includes("notification") &&
+                    unreadCount > 0 && (
+                      <span
+                        className={`ml-auto flex items-center justify-center text-[10px] ${
+                          unreadCount > 9
+                            ? "min-w-5 h-5 "
+                            : "min-w-4.5 h-4.5"
+                        } font-bold text-white bg-red-500 rounded-full`}
+                      >
+                        {unreadCount}
+                      </span>
+                    )}
                 </Link>
               );
             })}
-
-            <button
-              disabled={isLoading}
-              onClick={onLogout}
-              className={`relative flex items-center gap-3 px-5 py-2 rounded-xl transition-all duration-300 group w-full text-left
-                text-accent hover:bg-white/30 hover:shadow-md hover:shadow-purple-500/10 active:bg-white/10
-                ${isLoading ? "opacity-70 cursor-not-allowed" : ""}`}
-              aria-busy={isLoading}
-              aria-label={isLoading ? "Logging out…" : "Logout"}
-            >
-              <div className="flex h-7 w-7 items-center justify-center rounded-full transition-colors bg-transparent">
-                {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-white/70" />
-                ) : (
-                  <LogOut className="w-5 h-5 text-white/70 group-hover:text-tertiary/80 transition-colors" />
-                )}
-              </div>
-              <span className="font-medium text-white group-hover:text-tertiary/80">
-                {isLoading ? "Logging out…" : "Logout"}
-              </span>
-            </button>
           </nav>
 
+          {/* Logout */}
           <div className="p-4 border-t border-white/10">
-            <div className="flex items-center gap-1 p-1 rounded-full bg-white/5 border border-tertiary">
-              <button className="flex-1 px-4 py-2.5 rounded-full font-medium text-sm transition-all duration-300 lg:bg-white lg:text-accent lg:shadow-lg hidden lg:block">
-                Desktop
-              </button>
-              <button className="flex-1 px-4 py-2.5 rounded-full font-medium text-sm transition-all duration-300 lg:text-tertiary lg:hover:text-white lg:hidden bg-white text-accent shadow-lg">
-                Mobile
-              </button>
-              <button className="flex-1 px-4 py-2.5 rounded-full font-medium text-sm transition-all duration-300 text-tertiary hover:text-white hidden lg:block">
-                Mobile
-              </button>
-              <button className="flex-1 px-4 py-2.5 rounded-full font-medium text-sm transition-all duration-300 text-tertiary hover:text-white lg:hidden">
-                Desktop
-              </button>
-            </div>
+            <button
+              onClick={onLogout}
+              disabled={isLoading}
+              className="flex items-center gap-3 px-5 py-2 w-full rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-all duration-300"
+            >
+              {isLoading ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <LogOut className="w-5 h-5" />
+              )}
+              <span className="font-medium">
+                {isLoading ? "Logging out..." : "Logout"}
+              </span>
+            </button>
           </div>
         </div>
       </aside>
 
+      {/* Overlay for mobile */}
       {isSidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 lg:hidden backdrop-blur-sm"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
-          aria-hidden="true"
         />
       )}
 
+      {/* Main content */}
       <div className="lg:ml-72">
         <header
-          className={`sticky top-0 z-20 bg-secondary transition-all duration-300 ${
+          className={`sticky top-0 z-20 transition-all duration-300 ${
             isScrolled
               ? "shadow-lg bg-secondary/95"
               : "shadow-none bg-secondary/90"
@@ -283,7 +292,7 @@ export default function DashboardLayout({ children }) {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="lg:hidden p-2  hover:bg-gray-900 border border-tertiary rounded-full transition-colors active:bg-gray-800"
+                className="lg:hidden p-2 hover:bg-gray-900 border border-tertiary rounded-full transition-colors active:bg-gray-800"
                 aria-label={isSidebarOpen ? "Close menu" : "Open menu"}
               >
                 <Menu className="w-5 h-5 text-accent" />
@@ -301,7 +310,9 @@ export default function DashboardLayout({ children }) {
                   {unreadCount > 0 && (
                     <span
                       className={`absolute -top-1 -right-1 flex items-center justify-center text-[10px] ${
-                        unreadCount > 9 ? "min-w-5 h-5 " : "min-w-4.5 h-4.5"
+                        unreadCount > 9
+                          ? "min-w-5 h-5 "
+                          : "min-w-4.5 h-4.5"
                       } font-bold text-white bg-red-500 rounded-full`}
                     >
                       {unreadCount}

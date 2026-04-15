@@ -1,5 +1,7 @@
-import { supabase } from "@/lib/supabase/client";
 import { PLATFORMS } from "@/constants/admin/social";
+
+import { getSupabaseClient } from "../supabase/client";
+const supabase = getSupabaseClient()
 
 
 

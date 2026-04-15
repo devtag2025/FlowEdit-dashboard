@@ -1,5 +1,6 @@
-import { createClient } from "@/lib/supabase/client";
-import { supabase } from "@/lib/supabase/client";
+
+import { getSupabaseClient } from "../supabase/client";
+const supabase = getSupabaseClient()
 
 // ─── Fetch client branding ───
 export async function fetchClientBranding(clientId) {

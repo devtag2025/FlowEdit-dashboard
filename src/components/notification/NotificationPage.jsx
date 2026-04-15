@@ -1,13 +1,15 @@
 "use client";
 
+import Loader from "@/components/common/Loader";
 import EmptyNotification from "@/components/notification/EmptyNotification";
 import NotificationBar from "@/components/notification/NotificationBar";
 import NotificationDetail from "@/components/notification/NotificationDetail";
-import React, { useState, useEffect } from "react";
-import { fetchNotifications, markAsRead, markAllAsRead } from "@/lib/queries/notifications";
+import { fetchNotifications, markAllAsRead, markAsRead } from "@/lib/queries/notifications";
 import { fetchUserProfile } from "@/lib/queries/projects";
-import { supabase } from "@/lib/supabase/client";
-import Loader from "@/components/common/Loader";
+
+import { useEffect, useState } from "react";
+import { getSupabaseClient } from "../../lib/supabase/client";
+const supabase = getSupabaseClient()
 
 const NotificationPage = () => {
   const btns = [

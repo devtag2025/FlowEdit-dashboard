@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { fetchContractorContracts, signContract } from "@/lib/queries/earnings";
+import { downloadFile } from "@/lib/utils/download";
 import { Button } from "@/components/common/Button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +26,7 @@ export default function Contracts() {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState(null);
-  const [signingId, setSigningId] = useState(null); // tracks which contract is being signed
+  const [signingId, setSigningId] = useState(null);
 
   useEffect(() => {
     fetchContractorContracts()
@@ -38,7 +39,6 @@ export default function Contracts() {
     setSigningId(contractId);
     try {
       const updated = await signContract(contractId);
-      // Update the local state so UI reflects signed status immediately
       setContracts((prev) =>
         prev.map((c) =>
           c.id === contractId
@@ -51,6 +51,11 @@ export default function Contracts() {
     } finally {
       setSigningId(null);
     }
+  };
+
+  const handleDownload = (url, title) => {
+    const filename = `${(title || "contract").replace(/\s+/g, "-").toLowerCase()}.pdf`;
+    downloadFile(url, filename);
   };
 
   if (loading) {
@@ -127,7 +132,7 @@ export default function Contracts() {
               <div className="flex flex-col md:flex-row gap-4 flex-wrap">
                 {contract.file_url ? (
                   <>
-<a
+                    <a
                       href={contract.file_url}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -136,14 +141,13 @@ export default function Contracts() {
                       <FileText className="w-4 h-4 md:w-5 md:h-5" />
                       View Contract (PDF)
                     </a>
-<a
-                      href={contract.file_url}
-                      download
+                    <button
+                      onClick={() => handleDownload(contract.file_url, contract.title)}
                       className="flex items-center justify-center gap-2 px-6 py-3 border border-primary rounded-full font-bold text-primary hover:bg-primary hover:text-white transition-all"
                     >
                       <Download className="w-4 h-4 md:w-5 md:h-5" />
                       Download Contract
-                    </a>
+                    </button>
                   </>
                 ) : (
                   <p className="text-sm text-accent/40 italic">
@@ -151,7 +155,7 @@ export default function Contracts() {
                   </p>
                 )}
 
-                {/* ✅ Sign button — only shown if not already signed */}
+                {/* Sign button — only shown if not already signed */}
                 {contract.status !== "signed" && (
                   <button
                     onClick={() => handleSign(contract.id)}

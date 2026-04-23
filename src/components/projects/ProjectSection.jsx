@@ -27,6 +27,8 @@ import {
   markPosted,
   updateVersionStatus,
   addComment,
+  adminApproveProject,
+  adminSendToRevision,
 } from "@/lib/queries/projects";
 import { notifyProjectEvent, fetchAdminIds } from "@/lib/queries/notifications";
 import Loader from "@/components/common/Loader";
@@ -80,6 +82,10 @@ function ProjectSection({ projectId }) {
   // Admin actions
   const [publishedUrl, setPublishedUrl] = useState("");
   const [markingPosted, setMarkingPosted] = useState(false);
+  const [adminApproving, setAdminApproving] = useState(false);
+  const [isAdminRevisionOpen, setIsAdminRevisionOpen] = useState(false);
+  const [adminRevisionReason, setAdminRevisionReason] = useState("");
+  const [isAdminRevising, setIsAdminRevising] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -213,6 +219,43 @@ function ProjectSection({ projectId }) {
   };
 
   // ─── Admin Actions ───
+  const handleAdminApprove = async () => {
+    setAdminApproving(true);
+    try {
+      await adminApproveProject(projectId);
+      const recipientIds = [];
+      if (project.client_id) recipientIds.push(project.client_id);
+      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      notifyProjectEvent({ event: "project_approved", project, actorName: profile?.name, recipientIds }).catch(console.error);
+      await reloadProject();
+    } catch (err) {
+      console.error("Failed to approve project:", err);
+    } finally {
+      setAdminApproving(false);
+    }
+  };
+
+  const handleAdminRevise = async () => {
+    if (!adminRevisionReason.trim() || !profile) return;
+    setIsAdminRevising(true);
+    try {
+      await addComment(projectId, profile.id, `Admin revision: ${adminRevisionReason.trim()}`);
+      const latestVer = project.versions?.length > 0 ? project.versions[0] : null;
+      if (latestVer) await updateVersionStatus(latestVer.id, "rejected");
+      await adminSendToRevision(projectId);
+      if (project.contractor_id) {
+        notifyProjectEvent({ event: "revision_requested", project, actorName: profile?.name, recipientIds: [project.contractor_id] }).catch(console.error);
+      }
+      setAdminRevisionReason("");
+      setIsAdminRevisionOpen(false);
+      await reloadProject();
+    } catch (err) {
+      console.error("Failed to send to revision:", err);
+    } finally {
+      setIsAdminRevising(false);
+    }
+  };
+
   const handleMarkPosted = async () => {
     if (!publishedUrl.trim()) return;
     setMarkingPosted(true);
@@ -429,6 +472,35 @@ function ProjectSection({ projectId }) {
                   )}
 
                   {/* ADMIN ACTIONS */}
+                  {role === "admin" && project.status === "review" && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="lg"
+                        className="border border-primary text-primary md:rounded-xl md:px-5 md:py-6 text-xs md:text-base cursor-pointer"
+                        onClick={() => setIsAdminRevisionOpen(true)}
+                      >
+                        Send to Revision
+                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="lg"
+                            className="text-white text-xs md:text-base bg-primary hover:bg-primary/90 md:px-5 md:py-6 md:rounded-xl cursor-pointer transition-colors"
+                            onClick={handleAdminApprove}
+                            disabled={adminApproving}
+                          >
+                            {adminApproving ? "Approving..." : "Approve"}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs">
+                          Approve and mark project as completed
+                        </TooltipContent>
+                      </Tooltip>
+                    </>
+                  )}
+
                   {role === "admin" && project.status === "ready_to_post" && !isPosted && (
                     <Button
                       variant="ghost"
@@ -600,6 +672,52 @@ function ProjectSection({ projectId }) {
         uploaderId={profile?.id}
         onVersionCreated={reloadProject}
       />
+
+      {/* Admin: Send to Revision Modal */}
+      <Dialog open={isAdminRevisionOpen} onOpenChange={(open) => { if (!open && !isAdminRevising) { setIsAdminRevisionOpen(false); setAdminRevisionReason(""); } }}>
+        <DialogContent showCloseButton={false} className="w-full max-w-[95vw] sm:max-w-md rounded-2xl bg-tertiary p-0">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <div className="relative">
+              <DialogTitle className="text-slate-900 md:text-xl text-left font-bold">
+                Send to Revision
+              </DialogTitle>
+              <DialogClose asChild>
+                <button className="absolute right-0 top-0 rounded-md text-accent/60 hover:text-accent transition cursor-pointer" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
+              </DialogClose>
+            </div>
+            <DialogDescription className="text-sm text-gray-500 text-left mt-1">
+              Describe what needs to be changed before this project can proceed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 space-y-4">
+            <Textarea
+              placeholder="Describe the required changes..."
+              value={adminRevisionReason}
+              onChange={(e) => setAdminRevisionReason(e.target.value)}
+              className="bg-white border-accent/20 text-accent placeholder:text-accent/40 resize-none min-h-[100px]"
+            />
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setIsAdminRevisionOpen(false); setAdminRevisionReason(""); }}
+                disabled={isAdminRevising}
+                className="flex-1 rounded-xl py-5 text-sm font-semibold border-primary text-primary hover:bg-primary hover:text-white cursor-pointer transition-colors"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAdminRevise}
+                disabled={!adminRevisionReason.trim() || isAdminRevising}
+                className="flex-1 rounded-xl py-5 text-sm font-semibold bg-primary text-white hover:bg-primary/90 cursor-pointer disabled:opacity-50"
+              >
+                {isAdminRevising ? "Submitting..." : "Send to Revision"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Client: Revision Reason Modal */}
       <Dialog open={isRevisionOpen} onOpenChange={(open) => { if (!open && !isRevising) { setIsRevisionOpen(false); setRevisionReason(""); } }}>

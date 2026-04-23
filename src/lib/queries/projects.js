@@ -159,6 +159,15 @@ export async function markReadyToPost(id) {
   return data;
 }
 
+// ─── ADMIN: Review actions ───
+export async function adminApproveProject(id) {
+  return updateProjectStatus(id, "completed");
+}
+
+export async function adminSendToRevision(id) {
+  return updateProjectStatus(id, "in_progress");
+}
+
 // ─── ADMIN: Mark as posted ───
 export async function markPosted(id, publishedUrl) {
   const { data, error } = await supabase

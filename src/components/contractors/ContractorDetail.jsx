@@ -1,23 +1,29 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Edit, Mail, CheckCircle2, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import PayContractorModal from "@/components/earnings/PayContractorModal";
+import { fetchOnboardingStepsByContractorId } from "@/lib/queries/earnings";
+
+const STEP_LABELS = ["Start", "Account", "Profile", "Contract", "Signed"];
+
+function stepLabel(step, index) {
+  // Guard against UUIDs or empty labels stored in the DB
+  if (!step.label || step.label.length > 20) return STEP_LABELS[index] ?? `Step ${index + 1}`;
+  return step.label;
+}
 
 const ContractorDetail = ({ contractor, onBack, isMobile }) => {
   const [payModalOpen, setPayModalOpen] = useState(false);
+  const [onboardingSteps, setOnboardingSteps] = useState([]);
 
-  const onboardingSteps = [
-    { id: 1, label: "Start",    completed: true },
-    { id: 2, label: "Account",  completed: true },
-    { id: 3, label: "Profile",  completed: true },
-    { id: 4, label: "Training", completed: false },
-    { id: 5, label: "Contract", completed: false },
-    { id: 6, label: "Signed",   completed: false },
-    { id: 7, label: "Ready",    completed: false },
-    { id: 8, label: "End",      completed: false },
-  ];
+  useEffect(() => {
+    if (!contractor?.id) return;
+    fetchOnboardingStepsByContractorId(contractor.id)
+      .then(setOnboardingSteps)
+      .catch(console.error);
+  }, [contractor?.id]);
 
   const accessPermissions = [
     { id: 1, label: "Email",    active: true,  color: "bg-blue-500" },
@@ -79,15 +85,15 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
             <p className="text-xs font-semibold text-accent uppercase mb-2">Onboarding Progress</p>
             <div className="relative">
               <div className="absolute top-3 left-0 right-0 h-0.5 bg-tertiary" style={{ left: "5%", right: "5%" }}>
-                <div className="h-full bg-primary" style={{ width: "37.5%" }} />
+                <div className="h-full bg-primary" style={{ width: `${onboardingSteps.length ? (onboardingSteps.filter(s => s.completed).length / onboardingSteps.length) * 100 : 0}%` }} />
               </div>
               <div className="flex justify-between relative">
-                {onboardingSteps.map((step) => (
+                {onboardingSteps.map((step, idx) => (
                   <div key={step.id} className="flex flex-col items-center">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${step.completed ? "bg-primary text-white" : "bg-tertiary border-2 border-gray-300 text-accent"}`}>
-                      {step.completed ? "✓" : step.id}
+                      {step.completed ? "✓" : idx + 1}
                     </div>
-                    <span className="text-xs text-accent">{step.label}</span>
+                    <span className="text-xs text-accent">{stepLabel(step, idx)}</span>
                   </div>
                 ))}
               </div>
@@ -206,15 +212,15 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
           <h4 className="text-sm font-semibold text-accent/70 uppercase mb-4">Onboarding Progress</h4>
           <div className="relative">
             <div className="absolute top-4 left-0 right-0 h-1 bg-accent/10" style={{ left: "2%", right: "2%" }}>
-              <div className="h-full bg-primary rounded-full" style={{ width: "37.5%" }} />
+              <div className="h-full bg-primary rounded-full" style={{ width: `${onboardingSteps.length ? (onboardingSteps.filter(s => s.completed).length / onboardingSteps.length) * 100 : 0}%` }} />
             </div>
             <div className="flex justify-between relative">
-              {onboardingSteps.map((step) => (
+              {onboardingSteps.map((step, idx) => (
                 <div key={step.id} className="flex flex-col items-center">
                   <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mb-2 ${step.completed ? "bg-primary text-tertiary" : "bg-tertiary border-2 border-accent/20 text-accent/40"}`}>
-                    {step.completed ? "✓" : step.id}
+                    {step.completed ? "✓" : idx + 1}
                   </div>
-                  <span className="text-xs text-accent/60">{step.label}</span>
+                  <span className="text-xs text-accent/60">{stepLabel(step, idx)}</span>
                 </div>
               ))}
             </div>

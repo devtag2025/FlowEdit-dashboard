@@ -3,33 +3,22 @@
 import { useState } from "react";
 import EmptyCatalog from "./EmptyCatalog";
 import CatalogSidebar from "./CatalogSidebar";
-import { catalogData } from "@/data/catalog";
+import { catalogData as staticCatalogData } from "@/data/catalog";
 import VideoCard from "../common/VideoCard";
 
 const tabs = [
-  {
-    label: "Getting Started",
-    value: "started",
-  },
-  {
-    label: "Editing Standards",
-    value: "editing",
-  },
-  {
-    label: "File Naming & Exports",
-    value: "naming",
-  },
-  {
-    label: "Revisions & Feedback",
-    value: "revision",
-  },
+  { label: "Getting Started",       value: "started"  },
+  { label: "Editing Standards",     value: "editing"  },
+  { label: "File Naming & Exports", value: "naming"   },
+  { label: "Revisions & Feedback",  value: "revision" },
 ];
 
-const LearningCatalog = () => {
+const LearningCatalog = ({ catalog }) => {
   const [activeTab, setActiveTab] = useState("started");
   const [selectedCard, setSelectedCard] = useState(null);
 
-  const cards = catalogData[activeTab];
+  const data = catalog || staticCatalogData;
+  const cards = data[activeTab] || [];
 
   return (
     <div className="space-y-4">
@@ -41,10 +30,7 @@ const LearningCatalog = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.value}
-                onClick={() => {
-                  setActiveTab(tab.value);
-                  setSelectedCard(null);
-                }}
+                onClick={() => { setActiveTab(tab.value); setSelectedCard(null); }}
                 className={`relative text-sm md:text-base font-medium cursor-pointer pb-2 transition-all duration-300 ${
                   activeTab === tab.value
                     ? "text-accent font-bold border-b-4 border-primary rounded"
@@ -57,21 +43,18 @@ const LearningCatalog = () => {
           </div>
 
           <div className="grid grid-cols-1 p-2 mt-2">
-            {cards.map((card) => (
-              <VideoCard
-                key={card.id}
-                {...card}
-                onClick={() => setSelectedCard(card)}
-              />
-            ))}
+            {cards.length === 0 ? (
+              <p className="text-accent/40 text-sm py-6 text-center">No items in this category yet.</p>
+            ) : (
+              cards.map((card) => (
+                <VideoCard key={card.id} {...card} onClick={() => setSelectedCard(card)} />
+              ))
+            )}
           </div>
         </div>
 
         {selectedCard ? (
-          <CatalogSidebar
-            card={selectedCard}
-            onClose={() => setSelectedCard(null)}
-          />
+          <CatalogSidebar card={selectedCard} onClose={() => setSelectedCard(null)} />
         ) : (
           <EmptyCatalog />
         )}

@@ -1,23 +1,22 @@
 import React from "react";
 import { Card, CardContent } from "../ui/card";
-import { Acesses, tools } from "@/data/resource";
+import { Acesses as staticAccesses, tools as staticTools } from "@/data/resource";
 import { StatusBadge } from "./StatusBadges";
 
-const AccessTools = () => {
+const AccessTools = ({ accesses, tools }) => {
+  const accessList = accesses || staticAccesses;
+  const toolList   = tools    || staticTools;
+
   return (
     <Card className="bg-tertiary md:rounded-3xl">
       <CardContent className="flex flex-col gap-5 p-3 md:px-6">
         <div className="flex flex-col gap-4">
-          <h3 className="text-accent text-xl md:text-2xl font-semibold md:font-bold">
-            Access
-          </h3>
+          <h3 className="text-accent text-xl md:text-2xl font-semibold md:font-bold">Access</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
-            {Acesses.map((access) => (
-              <Card className="flex border-none rounded-lg md:rounded-3xl">
-                <CardContent className="flex justify-between items-center ">
-                  <h4 className="text-accent font-medium md:font-semibold text-base md:text-lg">
-                    {access.title}
-                  </h4>
+            {accessList.map((access) => (
+              <Card key={access.id ?? access.title} className="flex border-none rounded-lg md:rounded-3xl">
+                <CardContent className="flex justify-between items-center">
+                  <h4 className="text-accent font-medium md:font-semibold text-base md:text-lg">{access.title}</h4>
                   <StatusBadge status={access.status} />
                 </CardContent>
               </Card>
@@ -26,16 +25,12 @@ const AccessTools = () => {
         </div>
 
         <div className="flex flex-col gap-4">
-          <h3 className="text-accent text-xl md:text-2xl font-semibold md:font-bold">
-            Tools
-          </h3>
+          <h3 className="text-accent text-xl md:text-2xl font-semibold md:font-bold">Tools</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-4">
-            {tools.map((tool) => (
-              <Card className="flex border-none rounded-lg md:rounded-3xl">
+            {toolList.map((tool) => (
+              <Card key={tool.id ?? tool.title} className="flex border-none rounded-lg md:rounded-3xl">
                 <CardContent className="flex justify-between items-center">
-                  <h4 className="text-accent font-medium md:font-semibold text-base md:text-lg">
-                    {tool.title}
-                  </h4>
+                  <h4 className="text-accent font-medium md:font-semibold text-base md:text-lg">{tool.title}</h4>
                   <StatusBadge status={tool.status} />
                 </CardContent>
               </Card>

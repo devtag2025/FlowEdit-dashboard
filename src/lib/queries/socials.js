@@ -54,6 +54,16 @@ export async function upsertSocialPlatform({ platform, handle, url, connected })
   return data;
 }
 
+export async function fetchAllClientsSocials() {
+  const { data, error } = await supabase
+    .from("social_platforms")
+    .select("*, client:profiles!client_id(id, name, email, avatar_url)")
+    .order("client_id");
+
+  if (error) throw error;
+  return data || [];
+}
+
 export async function disconnectSocialPlatform(platform) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");

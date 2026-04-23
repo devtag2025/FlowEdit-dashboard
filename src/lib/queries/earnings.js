@@ -95,11 +95,30 @@ export async function signContract(contractId) {
       signed_at: new Date().toISOString(),
     })
     .eq("id", contractId)
-    .select("id, status, signed_at")
-    .single();
+    .select("id, status, signed_at");
 
   if (error) throw error;
-  return data;
+  if (!data || data.length === 0) throw new Error("Unable to sign contract. Check your permissions.");
+  return data[0];
+}
+
+const AUTO_COMPLETE_KEYS = ["start", "account", "profile"];
+
+
+const EXPECTED_STEPS = [
+  { step_key: "start",    label: "Start"    },
+  { step_key: "account",  label: "Account"  },
+  { step_key: "profile",  label: "Profile"  },
+  { step_key: "contract", label: "Contract" },
+  { step_key: "signed",   label: "Signed"   },
+];
+
+// Always returns all 5 steps in order, filling missing DB rows with completed: false
+function mergeWithExpected(data) {
+  const dbMap = new Map((data || []).map(s => [s.step_key, s]));
+  return EXPECTED_STEPS.map((expected, idx) =>
+    dbMap.get(expected.step_key) ?? { id: `fallback-${idx}`, ...expected, completed: false }
+  );
 }
 
 export async function fetchOnboardingSteps() {
@@ -110,24 +129,46 @@ export async function fetchOnboardingSteps() {
     .from("onboarding_steps")
     .select("id, step_key, label, completed, completed_at")
     .eq("contractor_id", user.id)
-    .order("created_at", { ascending: true }); // ✅ created_at not id
+    .order("created_at", { ascending: true });
 
   if (error) throw error;
 
-  if (!data || data.length === 0) {
-    return [
-      { id: 1, label: "Start",    completed: false },
-      { id: 2, label: "Account",  completed: false },
-      { id: 3, label: "Profile",  completed: false },
-      { id: 4, label: "Training", completed: false },
-      { id: 5, label: "Contract", completed: false },
-      { id: 6, label: "Signed",   completed: false },
-      { id: 7, label: "Ready",    completed: false },
-      { id: 8, label: "End",      completed: false },
-    ];
+  const steps = mergeWithExpected(data);
+
+  // Persist start/account/profile as complete if they aren't already (fire-and-forget)
+  const incompleteBaseIds = steps
+    .filter(s => AUTO_COMPLETE_KEYS.includes(s.step_key) && !s.completed && !String(s.id).startsWith("fallback"))
+    .map(s => s.id);
+
+  if (incompleteBaseIds.length > 0) {
+    supabase
+      .from("onboarding_steps")
+      .update({ completed: true, completed_at: new Date().toISOString() })
+      .in("id", incompleteBaseIds)
+      .then(() => {})
+      .catch(() => {});
   }
 
-  return data;
+  return steps.map(s =>
+    AUTO_COMPLETE_KEYS.includes(s.step_key) ? { ...s, completed: true } : s
+  );
+}
+
+export async function fetchOnboardingStepsByContractorId(contractorId) {
+  const { data, error } = await supabase
+    .from("onboarding_steps")
+    .select("id, step_key, label, completed, completed_at")
+    .eq("contractor_id", contractorId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const steps = mergeWithExpected(data);
+
+  // Force start/account/profile as completed — contractor exists in the system
+  return steps.map(s =>
+    AUTO_COMPLETE_KEYS.includes(s.step_key) ? { ...s, completed: true } : s
+  );
 }
 
 export async function fetchPolicies() {
@@ -145,6 +186,33 @@ export async function fetchPolicies() {
   return data || [];
 }
 
+
+export async function fetchLearningCatalog() {
+  const { data, error } = await supabase
+    .from("learning_catalog")
+    .select("id, category, title, description, time, thumbnail, status, checklists")
+    .order("id", { ascending: true });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return null;
+
+  return data.reduce((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+}
+
+export async function fetchResourceTools() {
+  const { data, error } = await supabase
+    .from("resource_tools")
+    .select("id, type, title, status")
+    .order("type")
+    .order("id");
+
+  if (error) throw error;
+  return data || [];
+}
 
 export function formatCurrency(amountPence, currency = "gbp") {
   return new Intl.NumberFormat("en-GB", {

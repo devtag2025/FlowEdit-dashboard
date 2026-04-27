@@ -1,9 +1,9 @@
 
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
 const supabase = getSupabaseClient()
 
 export async function fetchMyPayments() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -73,7 +73,7 @@ export async function createPayment({ contractorId, adminId, amount, currency, d
 }
 
 export async function fetchContractorContracts() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -122,7 +122,7 @@ function mergeWithExpected(data) {
 }
 
 export async function fetchOnboardingSteps() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -172,7 +172,7 @@ export async function fetchOnboardingStepsByContractorId(contractorId) {
 }
 
 export async function fetchPolicies() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase

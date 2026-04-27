@@ -1,6 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
+import { createClient as createAuthClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+// Service-role client for privileged write operations only
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SECRET_KEY
@@ -12,6 +14,13 @@ export async function POST(req) {
 
     if (!userId || !email) {
       return NextResponse.json({ merged: false, error: "Missing userId or email" }, { status: 400 });
+    }
+
+    // Verify the caller is the same user as userId — prevents IDOR attacks
+    const authClient = await createAuthClient();
+    const { data: { user: caller } } = await authClient.auth.getUser();
+    if (!caller || caller.id !== userId) {
+      return NextResponse.json({ merged: false, error: "Unauthorized" }, { status: 401 });
     }
 
     // Check if profile already has subscription data

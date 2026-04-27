@@ -236,7 +236,7 @@ export default function ContractorAccountSettings() {
     }
   };
 
-  const activeCount    = projects.filter((p) => ["submitted", "in_progress", "review"].includes(p.status)).length;
+  const activeCount    = projects.filter((p) => ["submitted", "in_progress", "review", "revision"].includes(p.status)).length;
   const completedCount = projects.filter((p) => ["completed", "ready_to_post", "posted"].includes(p.status)).length;
 
   const stats = [

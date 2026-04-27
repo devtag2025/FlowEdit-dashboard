@@ -23,6 +23,7 @@ const NotificationPage = () => {
   const [active, setActive] = useState("All");
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [profileId, setProfileId] = useState(null);
 
   useEffect(() => {
     let channel;
@@ -30,12 +31,13 @@ const NotificationPage = () => {
       try {
         const profile = await fetchUserProfile();
         if (profile) {
+          setProfileId(profile.id);
           const data = await fetchNotifications(profile.id);
           setNotifications(data || []);
 
-          // Subscribe to new notifications in realtime
+          // User-scoped channel name prevents cross-session subscription leaks
           channel = supabase
-            .channel("notifications-page")
+            .channel(`notifications-page-${profile.id}`)
             .on(
               "postgres_changes",
               { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profile.id}` },
@@ -54,9 +56,7 @@ const NotificationPage = () => {
     load();
 
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
+      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 
@@ -75,12 +75,10 @@ const NotificationPage = () => {
   };
 
   const handleMarkAllRead = async () => {
+    if (!profileId) return;
     try {
-      const profile = await fetchUserProfile();
-      if (profile) {
-        await markAllAsRead(profile.id);
-        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      }
+      await markAllAsRead(profileId);
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     } catch (err) {
       console.error("Failed to mark all as read:", err);
     }

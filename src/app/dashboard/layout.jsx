@@ -23,7 +23,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSupabaseClient } from "../../lib/supabase/client";
+import { getSupabaseClient, getUser } from "../../lib/supabase/client";
 const supabase = getSupabaseClient()
 
 const navigationConfig = {
@@ -58,7 +58,6 @@ export default function DashboardLayout({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
-  const [userId, setUserId] = useState(null);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -71,9 +70,8 @@ export default function DashboardLayout({ children }) {
     const init = async () => {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getUser();
       if (user) {
-        setUserId(user.id);
         const { data: profile } = await supabase
           .from("profiles")
           .select("name, avatar_url")
@@ -84,9 +82,9 @@ export default function DashboardLayout({ children }) {
           .then(setUnreadCount)
           .catch(() => setUnreadCount(0));
 
-        // Subscribe to new notifications for this user
+        // Subscribe to new notifications for this user (user-scoped name prevents cross-session leaks)
         channel = supabase
-          .channel("notifications-bell")
+          .channel(`notifications-bell-${user.id}`)
           .on(
             "postgres_changes",
             {

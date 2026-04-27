@@ -27,7 +27,7 @@ import {
   fetchAllProjects,
   fetchUserProfile,
   fetchContractors,
-  assignContractor,
+  assignContractors,
   markPosted,
 } from "@/lib/queries/projects";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +40,7 @@ const filters = [
   "Submitted",
   "In Progress",
   "Review",
+  "Revision",
   "Completed",
   "Ready to Post",
   "Posted",
@@ -49,6 +50,7 @@ const filterToStatus = {
   Submitted: "submitted",
   "In Progress": "in_progress",
   Review: "review",
+  Revision: "revision",
   Completed: "completed",
   "Ready to Post": "ready_to_post",
   Posted: "posted",
@@ -57,7 +59,7 @@ const filterToStatus = {
 function computeStats(projects) {
   const total = projects.length;
   const active = projects.filter(
-    (p) => p.status === "submitted" || p.status === "in_progress" || p.status === "review"
+    (p) => ["submitted", "in_progress", "review", "revision"].includes(p.status)
   ).length;
   const uniqueClients = new Set(projects.map((p) => p.client_id)).size;
   const uniqueContractors = new Set(
@@ -114,6 +116,7 @@ const AdminDashboard = () => {
   // Assign contractor modal
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [assignError, setAssignError] = useState(null);
 
   // Mark posted modal
   const [postedModalOpen, setPostedModalOpen] = useState(false);
@@ -149,24 +152,31 @@ const AdminDashboard = () => {
 
   const handleAssignClick = (project) => {
     setSelectedProject(project);
+    setAssignError(null);
     setAssignModalOpen(true);
   };
 
-  const handleAssignContractor = async (projectId, contractorId) => {
+  const handleAssignContractor = async (projectId, assignments) => {
     if (!profile) return;
+    setAssignError(null);
     try {
-      await assignContractor(projectId, contractorId, profile.id);
-      // Notify client that contractor was assigned, and contractor about the new assignment
+      await assignContractors(projectId, assignments, profile.id);
       if (selectedProject) {
         if (selectedProject.client_id) {
           notifyProjectEvent({ event: "contractor_assigned", project: selectedProject, actorName: profile.name, recipientIds: [selectedProject.client_id] }).catch(console.error);
         }
-        notifyProjectEvent({ event: "assigned_to_you", project: selectedProject, actorName: profile.name, recipientIds: [contractorId] }).catch(console.error);
+        const assignedIds = Object.values(assignments).filter(Boolean);
+        if (assignedIds.length) {
+          notifyProjectEvent({ event: "assigned_to_you", project: selectedProject, actorName: profile.name, recipientIds: assignedIds }).catch(console.error);
+        }
       }
       setAssignModalOpen(false);
       loadData();
     } catch (err) {
-      console.error("Failed to assign contractor:", err);
+      console.error("Failed to assign contractors:", err);
+      setAssignError(err.message?.includes("project_assignments")
+        ? "DB migration required — run the project_assignments SQL first."
+        : (err.message || "Failed to assign editors. Please try again."));
     }
   };
 
@@ -493,6 +503,7 @@ const AdminDashboard = () => {
         project={selectedProject}
         contractors={contractors}
         onAssign={handleAssignContractor}
+        error={assignError}
       />
 
       {/* Mark Posted Modal */}

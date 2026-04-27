@@ -29,6 +29,7 @@ import {
   addComment,
   adminApproveProject,
   adminSendToRevision,
+  fetchAllAssignedContractorIds,
 } from "@/lib/queries/projects";
 import { notifyProjectEvent, fetchAdminIds } from "@/lib/queries/notifications";
 import Loader from "@/components/common/Loader";
@@ -130,21 +131,26 @@ function ProjectSection({ projectId }) {
     }
   };
 
+  // Returns all contractor IDs assigned to this project (new roles table + legacy field)
+  function getAssignedContractorIds() {
+    if (project?.assignments?.length > 0) {
+      return [...new Set(project.assignments.map((a) => a.contractor_id))];
+    }
+    return project?.contractor_id ? [project.contractor_id] : [];
+  }
+
   // ─── Client Actions ───
   const handleApprovalComplete = async () => {
     if (!profile) return;
     try {
-      const updated = await approveProject(projectId, profile.id);
-      // Mark latest version as approved
+      await approveProject(projectId, profile.id);
       const latestVer = project.versions?.length > 0 ? project.versions[0] : null;
-      if (latestVer) {
-        await updateVersionStatus(latestVer.id, "approved");
-      }
-      // Notify contractor + admins
-      const recipientIds = [];
-      if (project.contractor_id) recipientIds.push(project.contractor_id);
-      const adminIds = await fetchAdminIds();
-      recipientIds.push(...adminIds.filter((id) => id !== profile.id));
+      if (latestVer) await updateVersionStatus(latestVer.id, "approved");
+      const [contractorIds, adminIds] = await Promise.all([
+        fetchAllAssignedContractorIds(projectId),
+        fetchAdminIds(),
+      ]);
+      const recipientIds = [...contractorIds, ...adminIds.filter((id) => id !== profile.id)];
       notifyProjectEvent({ event: "project_approved", project, actorName: profile.name, recipientIds }).catch(console.error);
       await reloadProject();
     } catch (err) {
@@ -156,17 +162,11 @@ function ProjectSection({ projectId }) {
     if (!revisionReason.trim() || !profile) return;
     setIsRevising(true);
     try {
-      // Post revision reason as a comment
       await addComment(projectId, profile.id, `Revision requested: ${revisionReason.trim()}`);
-      // Mark latest version as rejected
       const latestVer = project.versions?.length > 0 ? project.versions[0] : null;
-      if (latestVer) {
-        await updateVersionStatus(latestVer.id, "rejected");
-      }
-      await updateProjectStatus(projectId, "in_progress");
-      // Notify contractor that revision was requested
-      const recipientIds = [];
-      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      if (latestVer) await updateVersionStatus(latestVer.id, "rejected");
+      await updateProjectStatus(projectId, "revision");
+      const recipientIds = getAssignedContractorIds();
       notifyProjectEvent({ event: "revision_requested", project, actorName: profile.name, recipientIds }).catch(console.error);
       setRevisionReason("");
       setIsRevisionOpen(false);
@@ -183,9 +183,14 @@ function ProjectSection({ projectId }) {
     setSubmittingForReview(true);
     try {
       await updateProjectStatus(projectId, "review");
-      // Notify client that project is ready for review
-      if (project.client_id) {
-        notifyProjectEvent({ event: "submitted_for_review", project, actorName: profile?.name, recipientIds: [project.client_id] }).catch(console.error);
+      // Notify client + all admins (Reviewer in the flow diagram)
+      const adminIds = await fetchAdminIds();
+      const recipientIds = [
+        ...(project.client_id ? [project.client_id] : []),
+        ...adminIds.filter((id) => id !== profile?.id),
+      ];
+      if (recipientIds.length) {
+        notifyProjectEvent({ event: "submitted_for_review", project, actorName: profile?.name, recipientIds }).catch(console.error);
       }
       setProject((prev) => ({ ...prev, status: "review" }));
     } catch (err) {
@@ -223,9 +228,8 @@ function ProjectSection({ projectId }) {
     setAdminApproving(true);
     try {
       await adminApproveProject(projectId);
-      const recipientIds = [];
-      if (project.client_id) recipientIds.push(project.client_id);
-      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      const contractorIds = getAssignedContractorIds();
+      const recipientIds = [...(project.client_id ? [project.client_id] : []), ...contractorIds];
       notifyProjectEvent({ event: "project_approved", project, actorName: profile?.name, recipientIds }).catch(console.error);
       await reloadProject();
     } catch (err) {
@@ -243,8 +247,9 @@ function ProjectSection({ projectId }) {
       const latestVer = project.versions?.length > 0 ? project.versions[0] : null;
       if (latestVer) await updateVersionStatus(latestVer.id, "rejected");
       await adminSendToRevision(projectId);
-      if (project.contractor_id) {
-        notifyProjectEvent({ event: "revision_requested", project, actorName: profile?.name, recipientIds: [project.contractor_id] }).catch(console.error);
+      const recipientIds = getAssignedContractorIds();
+      if (recipientIds.length) {
+        notifyProjectEvent({ event: "revision_requested", project, actorName: profile?.name, recipientIds }).catch(console.error);
       }
       setAdminRevisionReason("");
       setIsAdminRevisionOpen(false);
@@ -260,11 +265,11 @@ function ProjectSection({ projectId }) {
     if (!publishedUrl.trim()) return;
     setMarkingPosted(true);
     try {
-      const updated = await markPosted(projectId, publishedUrl.trim());
-      // Notify client + contractor that project was posted
-      const recipientIds = [];
-      if (project.client_id) recipientIds.push(project.client_id);
-      if (project.contractor_id) recipientIds.push(project.contractor_id);
+      const [updated, contractorIds] = await Promise.all([
+        markPosted(projectId, publishedUrl.trim()),
+        fetchAllAssignedContractorIds(projectId),
+      ]);
+      const recipientIds = [...(project.client_id ? [project.client_id] : []), ...contractorIds];
       if (recipientIds.length) {
         notifyProjectEvent({ event: "marked_as_posted", project, actorName: profile?.name, recipientIds }).catch(console.error);
       }
@@ -295,6 +300,14 @@ function ProjectSection({ projectId }) {
   const isApproved = project.status === "completed" || !!project.approved_at;
   const isPosted = project.status === "posted";
   const latestVersion = project.versions?.length > 0 ? project.versions[0] : null;
+
+  // Derive this contractor's role on the project from assignments
+  const myAssignment = project.assignments?.find((a) => a.contractor_id === profile?.id);
+  const myProjectRole = myAssignment?.role ?? null;
+  // Only finishing editor submits for review; legacy single-contractor assignments can also submit
+  const canSubmitForReview =
+    myProjectRole === "finishing_editor" ||
+    (!project.assignments?.length && project.contractor_id === profile?.id);
 
   return (
     <Card className="bg-white rounded-3xl">
@@ -410,6 +423,8 @@ function ProjectSection({ projectId }) {
                         <span className="text-sm text-accent/50 font-medium">Waiting for assignment...</span>
                       ) : project.status === "in_progress" ? (
                         <span className="text-sm text-accent/50 font-medium">Editor is working on it...</span>
+                      ) : project.status === "revision" ? (
+                        <span className="text-sm text-accent/50 font-medium">Revision in progress...</span>
                       ) : null}
                     </>
                   )}
@@ -417,7 +432,7 @@ function ProjectSection({ projectId }) {
                   {/* CONTRACTOR ACTIONS */}
                   {role === "contractor" && (
                     <>
-                      {(project.status === "in_progress" || project.status === "review") && (
+                      {(project.status === "in_progress" || project.status === "review" || project.status === "revision") && (
                         <Button
                           variant="ghost"
                           size="lg"
@@ -429,7 +444,7 @@ function ProjectSection({ projectId }) {
                         </Button>
                       )}
 
-                      {project.status === "in_progress" && (
+                      {(project.status === "in_progress" || project.status === "revision") && canSubmitForReview && (
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button
@@ -473,32 +488,14 @@ function ProjectSection({ projectId }) {
 
                   {/* ADMIN ACTIONS */}
                   {role === "admin" && project.status === "review" && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="lg"
-                        className="border border-primary text-primary md:rounded-xl md:px-5 md:py-6 text-xs md:text-base cursor-pointer"
-                        onClick={() => setIsAdminRevisionOpen(true)}
-                      >
-                        Send to Revision
-                      </Button>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="lg"
-                            className="text-white text-xs md:text-base bg-primary hover:bg-primary/90 md:px-5 md:py-6 md:rounded-xl cursor-pointer transition-colors"
-                            onClick={handleAdminApprove}
-                            disabled={adminApproving}
-                          >
-                            {adminApproving ? "Approving..." : "Approve"}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="max-w-xs text-xs">
-                          Approve and mark project as completed
-                        </TooltipContent>
-                      </Tooltip>
-                    </>
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="border border-primary text-primary md:rounded-xl md:px-5 md:py-6 text-xs md:text-base cursor-pointer"
+                      onClick={() => setIsAdminRevisionOpen(true)}
+                    >
+                      Send to Revision
+                    </Button>
                   )}
 
                   {role === "admin" && project.status === "ready_to_post" && !isPosted && (

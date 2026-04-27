@@ -24,6 +24,7 @@ const filters = [
   "All",
   "In Progress",
   "Review",
+  "Revision",
   "Completed",
   "Ready to Post",
   "Posted",
@@ -32,6 +33,7 @@ const filters = [
 const filterToStatus = {
   "In Progress": "in_progress",
   Review: "review",
+  Revision: "revision",
   Completed: "completed",
   "Ready to Post": "ready_to_post",
   Posted: "posted",
@@ -40,7 +42,7 @@ const filterToStatus = {
 function computeStats(projects) {
   const total = projects.length;
   const active = projects.filter(
-    (p) => p.status === "in_progress" || p.status === "review"
+    (p) => ["in_progress", "review", "revision"].includes(p.status)
   ).length;
   const inReview = projects.filter((p) => p.status === "review").length;
   const completed = projects.filter(
@@ -74,6 +76,21 @@ function getGreeting() {
   if (hour < 12) return "Good Morning";
   if (hour < 17) return "Good Afternoon";
   return "Good Evening";
+}
+
+const ROLE_LABELS = {
+  offline_editor: "Offline Editor",
+  primary_editor: "Primary Editor",
+  finishing_editor: "Finishing Editor",
+};
+
+function RoleBadge({ role }) {
+  if (!role) return <span className="text-accent/40 text-xs">—</span>;
+  return (
+    <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+      {ROLE_LABELS[role] || role}
+    </span>
+  );
 }
 
 function formatDate(dateStr) {
@@ -241,6 +258,9 @@ const ContractorDashboard = () => {
                       Client
                     </th>
                     <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
+                      Role
+                    </th>
+                    <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
                       Status
                     </th>
                     <th className="text-left p-4 text-accent/70 font-semibold uppercase text-xs">
@@ -280,6 +300,10 @@ const ContractorDashboard = () => {
                             {project.client?.name || "—"}
                           </span>
                         </div>
+                      </td>
+
+                      <td className="p-4">
+                        <RoleBadge role={project.my_role} />
                       </td>
 
                       <td className="p-4">
@@ -327,6 +351,9 @@ const ContractorDashboard = () => {
                   <div className="flex items-center justify-between text-xs text-accent/60">
                     <span>Client: {project.client?.name || "—"}</span>
                     <span>Due: {formatDate(project.deadline)}</span>
+                  </div>
+                  <div className="pt-1">
+                    <RoleBadge role={project.my_role} />
                   </div>
 
                   <div className="flex items-center gap-2 pt-2">

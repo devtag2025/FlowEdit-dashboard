@@ -1,5 +1,5 @@
 import { createBulkNotifications } from '@/lib/queries/notifications'
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
 const supabase = getSupabaseClient()
 
 function stripHtml(html) {
@@ -37,7 +37,7 @@ export async function fetchBroadcasts() {
 export async function createBroadcast({ title, message, audience }) {
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   const { data: broadcast, error: broadcastError } = await supabase
@@ -88,7 +88,7 @@ export async function createBroadcast({ title, message, audience }) {
 export async function markBroadcastRead(broadcastId) {
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await getUser()
   if (!user) return
 
   const { error } = await supabase
@@ -107,9 +107,6 @@ export async function deleteBroadcast(broadcastId) {
   if (error) throw error
 }
 export async function updateBroadcast(broadcastId, { title, message }) {
-  const { createClient } = await import('@/lib/supabase/client')
-  const supabase = createClient()
-
   const { data, error } = await supabase
     .from('broadcasts')
     .update({ title, message })

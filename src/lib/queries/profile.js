@@ -1,5 +1,5 @@
 
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
 const supabase = getSupabaseClient();
 
 // ── fetchProfile ──────────────────────────────────────────────────────────────
@@ -13,7 +13,7 @@ export async function fetchProfile() {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
   // Try the full column list
@@ -59,7 +59,7 @@ export async function updateProfile({ name, phone, address, city, notification_p
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
   const payload = {};
@@ -88,10 +88,78 @@ export async function updateProfile({ name, phone, address, city, notification_p
   return data;
 }
 
+// ── fetchUserProfile ──────────────────────────────────────────────────────────
+// Full profile including all columns (subscription, onboarding, etc.).
+// Used by dashboard pages. Runs a one-time subscription merge for users who
+// paid before creating their account (Stripe webhook → pending_subscriptions).
+// fetchProfile() above is lighter (named columns only) and used by profile/settings pages.
+export async function fetchUserProfile() {
+  const { data: { user }, error: authError } = await getUser();
+  if (authError || !user) return null;
+
+  let { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  // Edge case: auth trigger hasn't created the profile row yet — look up by email
+  if (!profile && user.email) {
+    const { data: byEmail } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("email", user.email)
+      .maybeSingle();
+    profile = byEmail || null;
+  }
+
+  if (!profile) return null;
+
+  // Same OAuth avatar + created_at enrichment as fetchProfile
+  const oauthAvatar =
+    user.user_metadata?.avatar_url ||
+    user.user_metadata?.picture ||
+    user.identities?.[0]?.identity_data?.avatar_url ||
+    user.identities?.[0]?.identity_data?.picture ||
+    null;
+
+  profile = {
+    ...profile,
+    avatar_url: profile.avatar_url || oauthAvatar,
+    created_at: profile.created_at || user.created_at || null,
+    auth_id: user.id,
+  };
+
+  // Only attempt merge when subscription data is missing — avoids redundant API calls
+  const hasSubscription =
+    profile.subscription_status &&
+    profile.subscription_status !== "none" &&
+    profile.subscription_plan &&
+    profile.subscription_plan !== "launch";
+
+  if (!hasSubscription && user.email) {
+    try {
+      const res = await fetch("/api/auth/merge-subscription", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id, email: user.email }),
+      });
+      const result = await res.json();
+      if (result.merged && result.data) {
+        return { ...profile, ...result.data };
+      }
+    } catch (err) {
+      console.error("[fetchUserProfile] merge-subscription call failed:", err);
+    }
+  }
+
+  return profile;
+}
+
 export async function updateEmail(newEmail) {
   const { error: authError } = await supabase.auth.updateUser({ email: newEmail });
   if (authError) throw authError;
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (user) {
     await supabase.from("profiles").update({ email: newEmail }).eq("id", user.id);
   }
@@ -106,7 +174,7 @@ export async function uploadAvatar(file) {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
   const ext = file.name.split(".").pop();
@@ -133,7 +201,7 @@ export async function removeAvatar() {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser();
+  } = await getUser();
   if (authError || !user) throw new Error("Not authenticated");
 
   const { error } = await supabase

@@ -62,7 +62,10 @@ export default function ProjectComments({ projectId, project }) {
       setMessage("");
       // Notify other participants about the new comment
       if (project) {
-        const recipientIds = [project.client_id, project.contractor_id].filter((id) => id && id !== profile.id);
+        const contractorIds = project.assignments?.length > 0
+          ? [...new Set(project.assignments.map((a) => a.contractor_id))]
+          : project.contractor_id ? [project.contractor_id] : [];
+        const recipientIds = [project.client_id, ...contractorIds].filter((id) => id && id !== profile.id);
         if (recipientIds.length) {
           notifyProjectEvent({ event: "new_comment", project, actorName: profile.name, recipientIds }).catch(console.error);
         }

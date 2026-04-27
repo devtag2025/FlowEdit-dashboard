@@ -1,12 +1,12 @@
 import { PLATFORMS } from "@/constants/admin/social";
 
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
 const supabase = getSupabaseClient()
 
 
 
 export async function fetchSocialPlatforms() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -31,7 +31,7 @@ export async function fetchSocialPlatforms() {
 }
 
 export async function upsertSocialPlatform({ platform, handle, url, connected }) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -65,7 +65,7 @@ export async function fetchAllClientsSocials() {
 }
 
 export async function disconnectSocialPlatform(platform) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { error } = await supabase

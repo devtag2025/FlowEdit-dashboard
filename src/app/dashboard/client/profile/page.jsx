@@ -156,7 +156,7 @@ export default function ClientProfile() {
   }
 
   // ── stats ─────────────────────────────────────────────────────────────────
-  const active    = projects.filter((p) => ["submitted","in_progress","review"].includes(p.status)).length;
+  const active    = projects.filter((p) => ["submitted","in_progress","review","revision"].includes(p.status)).length;
   const completed = projects.filter((p) => ["completed","ready_to_post","posted"].includes(p.status)).length;
 
   if (loading) {

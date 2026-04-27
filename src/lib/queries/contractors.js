@@ -20,7 +20,7 @@ export async function fetchContractors() {
   return (data || []).map(c => {
     const projects = c.assigned || []
     const active = projects.filter(p =>
-      ['submitted', 'in_progress', 'review'].includes(p.status)
+      ['submitted', 'in_progress', 'review', 'revision'].includes(p.status)
     ).length
     const completed = projects.filter(p =>
       ['completed', 'ready_to_post', 'posted'].includes(p.status)

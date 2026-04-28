@@ -41,7 +41,7 @@ const navigationConfig = {
     { name: "Users", href: "/dashboard/admin/users", icon: UserCog },
     { name: "Payouts", href: "/dashboard/admin/contractors", icon: DollarSign },
     { name: "Contracts", href: "/dashboard/admin/contracts", icon: FileText },
-    { name: "Clients", href: "/dashboard/admin/clients", icon: Users },
+    // { name: "Clients", href: "/dashboard/admin/clients", icon: Users },
   ],
   contractor: [
     { name: "Dashboard", href: "/dashboard/contractor", icon: House },

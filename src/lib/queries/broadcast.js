@@ -1,5 +1,12 @@
 import { createBulkNotifications } from '@/lib/queries/notifications'
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
+
+// Maps role → preference key for broadcast notifications.
+// Contractors have no broadcast preference so they always receive them.
+const BROADCAST_PREF_BY_ROLE = {
+  client: "broadcastUpdates",
+  admin:  "broadcastActivity",
+};
 const supabase = getSupabaseClient()
 
 function stripHtml(html) {
@@ -37,7 +44,7 @@ export async function fetchBroadcasts() {
 export async function createBroadcast({ title, message, audience }) {
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await getUser()
   if (!user) throw new Error('Not authenticated')
 
   const { data: broadcast, error: broadcastError } = await supabase
@@ -73,7 +80,20 @@ export async function createBroadcast({ title, message, audience }) {
 
   if (recipientError) throw recipientError
 
-  const notifications = profiles.map(p => ({
+  // Fetch preferences and filter: only send to profiles who have the toggle on.
+  const { data: profilesWithPrefs } = await supabase
+    .from('profiles')
+    .select('id, role, notification_preferences')
+    .in('id', profiles.map(p => p.id))
+
+  const filtered = (profilesWithPrefs || profiles).filter((p) => {
+    const key = BROADCAST_PREF_BY_ROLE[p.role];
+    if (!key) return true;
+    const prefs = p.notification_preferences || {};
+    return prefs[key] !== false;
+  })
+
+  const notifications = filtered.map(p => ({
     user_id: p.id,
     title,
     message,
@@ -88,7 +108,7 @@ export async function createBroadcast({ title, message, audience }) {
 export async function markBroadcastRead(broadcastId) {
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await getUser()
   if (!user) return
 
   const { error } = await supabase
@@ -107,9 +127,6 @@ export async function deleteBroadcast(broadcastId) {
   if (error) throw error
 }
 export async function updateBroadcast(broadcastId, { title, message }) {
-  const { createClient } = await import('@/lib/supabase/client')
-  const supabase = createClient()
-
   const { data, error } = await supabase
     .from('broadcasts')
     .update({ title, message })

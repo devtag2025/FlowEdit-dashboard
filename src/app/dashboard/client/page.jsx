@@ -24,6 +24,7 @@ const filters = [
   "Submitted",
   "In Progress",
   "Review",
+  "Revision",
   "Completed",
   "Ready to Post",
   "Posted",
@@ -33,6 +34,7 @@ const filterToStatus = {
   Submitted: "submitted",
   "In Progress": "in_progress",
   Review: "review",
+  Revision: "revision",
   Completed: "completed",
   "Ready to Post": "ready_to_post",
   Posted: "posted",
@@ -41,7 +43,7 @@ const filterToStatus = {
 function computeStats(projects) {
   const total = projects.length;
   const active = projects.filter(
-    (p) => p.status === "submitted" || p.status === "in_progress" || p.status === "review"
+    (p) => ["submitted", "in_progress", "review", "revision"].includes(p.status)
   ).length;
   const inReview = projects.filter((p) => p.status === "review").length;
   const completed = projects.filter(

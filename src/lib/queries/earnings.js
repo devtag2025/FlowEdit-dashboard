@@ -1,9 +1,9 @@
 
-import { getSupabaseClient } from "../supabase/client";
+import { getSupabaseClient, getUser } from "../supabase/client";
 const supabase = getSupabaseClient()
 
 export async function fetchMyPayments() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -73,7 +73,7 @@ export async function createPayment({ contractorId, adminId, amount, currency, d
 }
 
 export async function fetchContractorContracts() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase
@@ -122,14 +122,21 @@ function mergeWithExpected(data) {
 }
 
 export async function fetchOnboardingSteps() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
-  const { data, error } = await supabase
-    .from("onboarding_steps")
-    .select("id, step_key, label, completed, completed_at")
-    .eq("contractor_id", user.id)
-    .order("created_at", { ascending: true });
+  const [{ data, error }, { data: contracts }] = await Promise.all([
+    supabase
+      .from("onboarding_steps")
+      .select("id, step_key, label, completed, completed_at")
+      .eq("contractor_id", user.id)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("contractor_documents")
+      .select("id, status")
+      .eq("contractor_id", user.id)
+      .eq("type", "contract"),
+  ]);
 
   if (error) throw error;
 
@@ -149,9 +156,15 @@ export async function fetchOnboardingSteps() {
       .catch(() => {});
   }
 
-  return steps.map(s =>
-    AUTO_COMPLETE_KEYS.includes(s.step_key) ? { ...s, completed: true } : s
-  );
+  const hasContracts  = (contracts || []).length > 0;
+  const allSigned     = hasContracts && (contracts || []).every(c => c.status === "signed");
+
+  return steps.map(s => {
+    if (AUTO_COMPLETE_KEYS.includes(s.step_key)) return { ...s, completed: true };
+    if (s.step_key === "contract") return { ...s, completed: hasContracts };
+    if (s.step_key === "signed")   return { ...s, completed: allSigned };
+    return s;
+  });
 }
 
 export async function fetchOnboardingStepsByContractorId(contractorId) {
@@ -172,7 +185,7 @@ export async function fetchOnboardingStepsByContractorId(contractorId) {
 }
 
 export async function fetchPolicies() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data, error } = await supabase

@@ -221,13 +221,7 @@ export default function ContractorsPage() {
                     <Eye className="w-4 h-4" />
                     <span className="text-sm font-medium">View</span>
                   </button>
-                  <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
-                    <MessageSquare className="w-4 h-4" />
-                    <span className="text-sm font-medium">Message</span>
-                  </button>
-                  <button className="px-4 py-2 bg-tertiary rounded-lg text-accent hover:bg-accent/5 transition-colors">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
+
                 </div>
               </div>
             ))}
@@ -323,8 +317,6 @@ export default function ContractorsPage() {
                           label="View"
                           onClick={() => handleContractorSelect(contractor)}
                         />
-                        <ActionButton icon={MessageSquare} label="Message" />
-                        <ActionButton icon={MoreVertical} label="More" />
                       </div>
                     </td>
                   </tr>

@@ -1,4 +1,4 @@
-import { fetchBroadcasts } from "@/lib/queries/broadcast";
+import { fetchBroadcasts, sendScheduledBroadcast } from "@/lib/queries/broadcast";
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "../../lib/supabase/client";
@@ -7,15 +7,15 @@ const supabase = getSupabaseClient()
 const AUDIENCE_COLORS = {
   Contractors: "bg-primary/10 text-primary",
   Clients:     "bg-[#ec4899]/10 text-[#ec4899]",
-  Management:  "bg-[#f59e0b]/10 text-[#f59e0b]",
   All:         "bg-accent/10 text-accent",
 };
 
-function deriveAudience(recipients) {
+function deriveAudience(storedAudience, recipients) {
+  if (storedAudience) return storedAudience;
   if (!recipients || recipients.length === 0) return "All";
   const roles = [...new Set(recipients.map((r) => r.profile?.role).filter(Boolean))];
   if (roles.length !== 1) return "All";
-  const map = { contractor: "Contractors", client: "Clients", admin: "Management" };
+  const map = { contractor: "Contractors", client: "Clients" };
   return map[roles[0]] || "All";
 }
 
@@ -28,8 +28,16 @@ function timeAgo(dateStr) {
 }
 
 function normalise(b) {
-  const audience = deriveAudience(b.recipients);
-  const views    = (b.recipients || []).filter((r) => r.read_at).length;
+  const audience       = deriveAudience(b.audience, b.recipients);
+  const views          = (b.recipients || []).filter((r) => r.read_at).length;
+  const recipientCount = (b.recipients || []).length;
+  const status         = b.status || "sent";
+  const scheduledFor   = b.scheduled_for
+    ? new Date(b.scheduled_for).toLocaleString("en-US", {
+        month: "short", day: "numeric",
+        hour: "2-digit", minute: "2-digit",
+      })
+    : null;
   return {
     ...b,
     content:       b.message,
@@ -37,9 +45,11 @@ function normalise(b) {
     audienceColor: AUDIENCE_COLORS[audience] || AUDIENCE_COLORS.All,
     priority:      "Active",
     priorityColor: "bg-green-100 text-green-700",
-    status:        "sent",
+    status,
+    scheduledFor,
     sentAt:        timeAgo(b.created_at),
     views,
+    recipientCount,
     recipients:    audience,
   };
 }
@@ -59,6 +69,19 @@ export function useBroadcasts() {
     try {
       setLoading(true);
       const data = await fetchBroadcasts();
+
+      const now = new Date();
+      const overdue = data.filter(
+        (b) => b.status === "scheduled" && b.scheduled_for && new Date(b.scheduled_for) <= now
+      );
+
+      if (overdue.length > 0) {
+        await Promise.all(overdue.map((b) => sendScheduledBroadcast(b.id)));
+        const fresh = await fetchBroadcasts();
+        setBroadcasts(fresh.map(normalise));
+        return;
+      }
+
       setBroadcasts(data.map(normalise));
     } catch (err) {
       console.error("Failed to load broadcasts:", err);

@@ -72,13 +72,13 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
               <p className="text-base font-bold text-accent">{contractor.avgDeliveryTime || "--"}</p>
               <p className="text-xs text-accent">Avg. delivery time</p>
             </div>
-            <div className="bg-tertiary rounded-lg p-2.5">
+            {/* <div className="bg-tertiary rounded-lg p-2.5">
               <div className="flex items-center gap-1 text-accent text-xs mb-1">
                 <Edit className="w-3 h-3" />
               </div>
               <p className="text-base font-bold text-accent">{contractor.revisionRate || "--"}</p>
               <p className="text-xs text-accent">Revision rate</p>
-            </div>
+            </div> */}
           </div>
 
           <div className="bg-tertiary rounded-xl p-3">
@@ -189,14 +189,14 @@ const ContractorDetail = ({ contractor, onBack, isMobile }) => {
             <h3 className="text-3xl font-bold text-accent mb-1">{contractor.avgDeliveryTime || "--"}</h3>
             <p className="text-xs text-accent/60">Per project</p>
           </div>
-          <div className="bg-tertiary rounded-2xl p-6">
+          {/* <div className="bg-tertiary rounded-2xl p-6">
             <div className="flex items-center gap-2 text-accent/60 text-sm mb-2">
               <Edit className="w-4 h-4" />
               <span>Revision rate</span>
             </div>
             <h3 className="text-3xl font-bold text-accent mb-1">{contractor.revisionRate || "--"}</h3>
             <p className="text-xs text-accent/60">Of all projects</p>
-          </div>
+          </div> */}
         </div>
 
         {/* Onboarding */}

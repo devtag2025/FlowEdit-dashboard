@@ -9,18 +9,6 @@ const BROADCAST_PREF_BY_ROLE = {
 };
 const supabase = getSupabaseClient()
 
-function stripHtml(html) {
-  if (!html) return ''
-  return html
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
 
 export async function fetchBroadcasts() {
   const { data, error } = await supabase
@@ -28,7 +16,7 @@ export async function fetchBroadcasts() {
     .select(
       `
       id, title, message, created_at,
-      sent_by,
+      sent_by, status, scheduled_for, audience,
       recipients:broadcast_recipients(
         id, profile_id, read_at,
         profile:profiles!profile_id(id, name, email, role)
@@ -41,68 +29,78 @@ export async function fetchBroadcasts() {
   return data || []
 }
 
-export async function createBroadcast({ title, message, audience }) {
-  const {
-    data: { user },
-  } = await getUser()
-  if (!user) throw new Error('Not authenticated')
-
-  const { data: broadcast, error: broadcastError } = await supabase
-    .from('broadcasts')
-    .insert({ title, message, sent_by: user.id })
-    .select()
-    .single()
-
-  if (broadcastError) throw broadcastError
+async function insertRecipientsAndNotify(broadcastId, title, message, audience) {
+  const roleMap = { Contractors: 'contractor', Clients: 'client' }
 
   let profileQuery = supabase.from('profiles').select('id, name, role')
   if (audience !== 'All') {
-    const roleMap = {
-      Contractors: 'contractor',
-      Clients: 'client',
-      Management: 'admin',
-    }
     profileQuery = profileQuery.eq('role', roleMap[audience] || audience.toLowerCase())
   }
 
   const { data: profiles, error: profileError } = await profileQuery
   if (profileError) throw profileError
-  if (!profiles || profiles.length === 0) return broadcast
-
-  const recipientRows = profiles.map(p => ({
-    broadcast_id: broadcast.id,
-    profile_id: p.id,
-  }))
+  if (!profiles || profiles.length === 0) return
 
   const { error: recipientError } = await supabase
     .from('broadcast_recipients')
-    .insert(recipientRows)
-
+    .insert(profiles.map(p => ({ broadcast_id: broadcastId, profile_id: p.id })))
   if (recipientError) throw recipientError
 
-  // Fetch preferences and filter: only send to profiles who have the toggle on.
   const { data: profilesWithPrefs } = await supabase
     .from('profiles')
     .select('id, role, notification_preferences')
     .in('id', profiles.map(p => p.id))
 
   const filtered = (profilesWithPrefs || profiles).filter((p) => {
-    const key = BROADCAST_PREF_BY_ROLE[p.role];
-    if (!key) return true;
-    const prefs = p.notification_preferences || {};
-    return prefs[key] !== false;
+    const key = BROADCAST_PREF_BY_ROLE[p.role]
+    if (!key) return true
+    return (p.notification_preferences || {})[key] !== false
   })
 
-  const notifications = filtered.map(p => ({
-    user_id: p.id,
-    title,
-    message,
-    type: 'broadcast',
-    reference_id: broadcast.id,
-  }))
+  await createBulkNotifications(
+    filtered.map(p => ({
+      user_id: p.id, title, message,
+      type: 'broadcast', reference_id: broadcastId,
+    }))
+  )
+}
 
-  await createBulkNotifications(notifications)
+export async function createBroadcast({ title, message, audience, scheduledFor }) {
+  const { data: { user } } = await getUser()
+  if (!user) throw new Error('Not authenticated')
 
+  const isScheduled = !!scheduledFor
+
+  const { data: broadcast, error: broadcastError } = await supabase
+    .from('broadcasts')
+    .insert({
+      title, message, sent_by: user.id,
+      audience,
+      status:        isScheduled ? 'scheduled' : 'sent',
+      scheduled_for: scheduledFor || null,
+    })
+    .select()
+    .single()
+
+  if (broadcastError) throw broadcastError
+
+  if (!isScheduled) {
+    await insertRecipientsAndNotify(broadcast.id, title, message, audience)
+  }
+
+  return broadcast
+}
+
+export async function sendScheduledBroadcast(broadcastId) {
+  const { data: broadcast, error } = await supabase
+    .from('broadcasts')
+    .update({ status: 'sent', scheduled_for: null })
+    .eq('id', broadcastId)
+    .select()
+    .single()
+  if (error) throw error
+
+  await insertRecipientsAndNotify(broadcastId, broadcast.title, broadcast.message, broadcast.audience || 'All')
   return broadcast
 }
 export async function markBroadcastRead(broadcastId) {

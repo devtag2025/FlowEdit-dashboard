@@ -33,13 +33,13 @@ const DEFAULT_NOTIF = {
 const NOTIF_OPTIONS = [
   {
     key: "projectAssigned",
-    label: "Project Assignments",
-    description: "Get notified when a new project is assigned to you.",
+    label: "Project Assignments & Updates",
+    description: "Get notified when projects are assigned, approved, or posted.",
   },
   {
     key: "revisionRequests",
-    label: "Revision Requests",
-    description: "Get notified when a client or admin requests a revision.",
+    label: "Comments & Revision Requests",
+    description: "Get notified when clients or admins comment or request a revision.",
   },
   {
     key: "paymentReceived",

@@ -19,13 +19,11 @@ import { fetchClientProjects } from "@/lib/queries/projects";
 
 const DEFAULT_NOTIF = {
   projectUpdates:      true,
-  emailNotifications:  true,
   broadcastUpdates:    true,
 };
 
 const NOTIF_OPTIONS = [
   { key: "projectUpdates",     label: "Project Updates",    description: "Get notified when your project status changes." },
-  { key: "emailNotifications", label: "Email Notifications",description: "Receive email updates about your account activity." },
   { key: "broadcastUpdates",   label: "Broadcast Messages", description: "Receive platform-wide announcements from the team." },
 ];
 

@@ -1,4 +1,3 @@
-
 import { getSupabaseClient } from "../supabase/client";
 const supabase = getSupabaseClient();
 
@@ -10,11 +9,48 @@ const EVENT_PREF_MAP = {
   assigned_to_you:      { contractor: "projectAssigned" },
   submitted_for_review: { client: "projectUpdates", admin: "contractorActivity" },
   revision_requested:   { contractor: "revisionRequests", admin: "clientActivity", client: "projectUpdates" },
-  project_approved:     { admin: "clientActivity", contractor: "projectAssigned" },
+  project_approved:     { admin: "clientActivity", contractor: "projectAssigned", client: "projectUpdates" },
   marked_ready_to_post: { admin: "clientActivity", client: "projectUpdates" },
   marked_as_posted:     { client: "projectUpdates", contractor: "projectAssigned", admin: "clientActivity" },
   new_comment:          { client: "projectUpdates", contractor: "revisionRequests", admin: "clientActivity" },
 };
+
+// Notification rows only store type/title, so display-time filtering mirrors
+// the event map above by title. Unknown rows stay visible.
+const NOTIFICATION_PREF_BY_TITLE = {
+  "New Project Submitted": { admin: "newProjectSubmitted" },
+  "Contractor Assigned":  { client: "projectUpdates", admin: "contractorActivity" },
+  "New Assignment":       { contractor: "projectAssigned" },
+  "Ready for Review":     { client: "projectUpdates", admin: "contractorActivity" },
+  "Revision Requested":   { client: "projectUpdates", contractor: "revisionRequests", admin: "clientActivity" },
+  "Project Approved":     { client: "projectUpdates", contractor: "projectAssigned", admin: "clientActivity" },
+  "Ready to Post":        { client: "projectUpdates", admin: "clientActivity" },
+  "Project Posted":       { client: "projectUpdates", contractor: "projectAssigned", admin: "clientActivity" },
+  "New Comment":          { client: "projectUpdates", contractor: "revisionRequests", admin: "clientActivity" },
+  "Payment Received":     { contractor: "paymentReceived" },
+};
+
+export function getPreferenceKeyForNotification(notification, role) {
+  if (!notification || !role) return null;
+  if (notification.type === "broadcast") {
+    if (role === "client") return "broadcastUpdates";
+    if (role === "admin") return "broadcastActivity";
+    return null;
+  }
+
+  return NOTIFICATION_PREF_BY_TITLE[notification.title]?.[role] || null;
+}
+
+export function filterNotificationsByPreferences(notifications, role, preferences) {
+  if (!notifications?.length || !role) return notifications || [];
+
+  const prefs = preferences || {};
+  return notifications.filter((notification) => {
+    const prefKey = getPreferenceKeyForNotification(notification, role);
+    if (!prefKey) return true;
+    return prefs[prefKey] !== false;
+  });
+}
 
 // Fetches role + preferences for a list of user IDs.
 async function fetchRecipientProfiles(userIds) {
@@ -55,14 +91,27 @@ export async function fetchNotifications(userId) {
 
 // ─── Get unread count ───
 export async function getUnreadCount(userId) {
-  const { count, error } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_read", false);
+  if (!userId) return 0;
+
+  const [{ data: profile }, { data: notifications, error }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("role, notification_preferences")
+      .eq("id", userId)
+      .maybeSingle(),
+    supabase
+      .from("notifications")
+      .select("id, title, type")
+      .eq("user_id", userId)
+      .eq("is_read", false),
+  ]);
 
   if (error) throw error;
-  return count || 0;
+  return filterNotificationsByPreferences(
+    notifications || [],
+    profile?.role,
+    profile?.notification_preferences
+  ).length;
 }
 
 // ─── Mark single notification as read ───
@@ -106,6 +155,8 @@ export async function createNotification({ userId, title, message, type = "proje
 
 // ─── Create notifications for multiple users ───
 export async function createBulkNotifications(notifications) {
+  if (!notifications?.length) return;
+
   const { error } = await supabase
     .from("notifications")
     .insert(notifications);
@@ -187,11 +238,14 @@ export async function notifyProjectEvent({ event, project, actorName, recipientI
   const msg = messages[event];
   if (!msg || !recipientIds?.length) return;
 
+  const uniqueRecipientIds = [...new Set(recipientIds.filter(Boolean))];
+  if (!uniqueRecipientIds.length) return;
+
   // Filter recipients by their notification preferences for this event.
   const prefKeyByRole = EVENT_PREF_MAP[event] || {};
-  let filteredIds = recipientIds;
+  let filteredIds = uniqueRecipientIds;
   if (Object.keys(prefKeyByRole).length > 0) {
-    const profiles = await fetchRecipientProfiles(recipientIds);
+    const profiles = await fetchRecipientProfiles(uniqueRecipientIds);
     filteredIds = filterByPref(profiles, prefKeyByRole);
   }
   if (!filteredIds.length) return;

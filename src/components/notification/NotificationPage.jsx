@@ -4,7 +4,12 @@ import Loader from "@/components/common/Loader";
 import EmptyNotification from "@/components/notification/EmptyNotification";
 import NotificationBar from "@/components/notification/NotificationBar";
 import NotificationDetail from "@/components/notification/NotificationDetail";
-import { fetchNotifications, markAllAsRead, markAsRead } from "@/lib/queries/notifications";
+import {
+  fetchNotifications,
+  filterNotificationsByPreferences,
+  markAllAsRead,
+  markAsRead,
+} from "@/lib/queries/notifications";
 import { markBroadcastRead } from "@/lib/queries/broadcast";
 import { fetchUserProfile } from "@/lib/queries/projects";
 
@@ -25,6 +30,8 @@ const NotificationPage = () => {
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [mobileDetailOpen, setMobileDetailOpen]   = useState(false);
   const [profileId, setProfileId]                 = useState(null);
+  const [userRole, setUserRole]                   = useState(null);
+  const [notifPrefs, setNotifPrefs]               = useState(null);
 
   useEffect(() => {
     let channel;
@@ -33,6 +40,8 @@ const NotificationPage = () => {
         const profile = await fetchUserProfile();
         if (profile) {
           setProfileId(profile.id);
+          setUserRole(profile.role || null);
+          setNotifPrefs(profile.notification_preferences || null);
           const data = await fetchNotifications(profile.id);
           setNotifications(data || []);
 
@@ -87,12 +96,13 @@ const NotificationPage = () => {
   };
 
   const activeBtn = btns.find((b) => b.label === active);
+  const prefFiltered = filterNotificationsByPreferences(notifications, userRole, notifPrefs);
   const filteredNotifications =
     activeBtn?.type === "all"
-      ? notifications
-      : notifications.filter((n) => n.type === activeBtn?.type);
+      ? prefFiltered
+      : prefFiltered.filter((n) => n.type === activeBtn?.type);
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const unreadCount = prefFiltered.filter((n) => !n.is_read).length;
 
   if (loading) {
     return (

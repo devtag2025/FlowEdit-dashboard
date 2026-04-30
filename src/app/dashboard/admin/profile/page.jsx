@@ -29,8 +29,7 @@ const DEFAULT_NOTIF = {
   newProjectSubmitted: true,
   contractorActivity: true,
   clientActivity: true,
-  broadcastActivity: false,
-  emailNotifications: true,
+  broadcastActivity: true,
 };
 
 const NOTIF_OPTIONS = [
@@ -42,22 +41,17 @@ const NOTIF_OPTIONS = [
   {
     key: "contractorActivity",
     label: "Contractor Activity",
-    description: "Updates when contractors submit or update work.",
+    description: "Updates when contractors submit work for review.",
   },
   {
     key: "clientActivity",
-    label: "Client Activity",
-    description: "Updates when clients approve, comment, or request changes.",
+    label: "Client & Project Activity",
+    description: "Approvals, revisions, comments, and posting-ready updates.",
   },
   {
     key: "broadcastActivity",
-    label: "Broadcast Confirmations",
-    description: "Confirm when a broadcast is successfully sent.",
-  },
-  {
-    key: "emailNotifications",
-    label: "Email Notifications",
-    description: "Receive email digests for account activity.",
+    label: "Broadcast Messages",
+    description: "Receive platform-wide broadcast notifications.",
   },
 ];
 

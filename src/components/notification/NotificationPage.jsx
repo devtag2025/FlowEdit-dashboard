@@ -5,6 +5,7 @@ import EmptyNotification from "@/components/notification/EmptyNotification";
 import NotificationBar from "@/components/notification/NotificationBar";
 import NotificationDetail from "@/components/notification/NotificationDetail";
 import { fetchNotifications, markAllAsRead, markAsRead } from "@/lib/queries/notifications";
+import { markBroadcastRead } from "@/lib/queries/broadcast";
 import { fetchUserProfile } from "@/lib/queries/projects";
 
 import { useEffect, useState } from "react";
@@ -64,6 +65,13 @@ const NotificationPage = () => {
         );
       } catch (err) {
         console.error("Failed to mark as read:", err);
+      }
+    }
+    if (notification.type === "broadcast" && notification.reference_id) {
+      try {
+        await markBroadcastRead(notification.reference_id);
+      } catch (err) {
+        console.error("Failed to mark broadcast as read:", err);
       }
     }
   };

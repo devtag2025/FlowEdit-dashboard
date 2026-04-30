@@ -50,7 +50,6 @@ function normalise(b) {
     sentAt:        timeAgo(b.created_at),
     views,
     recipientCount,
-    recipients:    audience,
   };
 }
 

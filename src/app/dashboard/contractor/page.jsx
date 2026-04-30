@@ -173,16 +173,6 @@ const ContractorDashboard = () => {
                 Your assigned projects and deadlines
               </p>
             </div>
-            <div className="bg-white/50 py-2 px-4 rounded-full flex items-center gap-3 text-sm w-fit">
-              <span className="text-accent/70 font-semibold">Status</span>
-              <span className={`rounded-full py-1 px-3 font-bold text-xs ${
-                profile?.onboarding_completed
-                  ? "bg-green-100 text-green-700"
-                  : "bg-white text-primary"
-              }`}>
-                {profile?.onboarding_completed ? "Active" : "Inactive"}
-              </span>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -198,9 +188,9 @@ const ContractorDashboard = () => {
               </h2>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="relative w-full overflow-hidden">
-                <div className="w-full">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+              <div className="min-w-0">
+                <div className="w-full min-w-0">
                   <div className="lg:hidden w-full">
                     <Select value={activeFilter} onValueChange={setActiveFilter}>
                       <SelectTrigger className="h-11 w-full rounded-xl border border-accent/20 bg-white! text-sm font-semibold text-accent transition-all hover:border-primary/50 hover:bg-accent/5 focus:ring-2 focus:ring-primary/40 focus:border-primary">
@@ -220,7 +210,7 @@ const ContractorDashboard = () => {
                     </Select>
                   </div>
 
-                  <div className="hidden lg:flex gap-2 flex-wrap">
+                  <div className="hidden lg:flex flex-wrap gap-2">
                     {filters.map((filter) => (
                       <FilterButton
                         key={filter}
@@ -234,14 +224,14 @@ const ContractorDashboard = () => {
                 </div>
               </div>
 
-              <div className="relative w-full lg:w-80 bg-white rounded-2xl">
+              <div className="relative w-full bg-white rounded-xl">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                 <Input
                   type="text"
                   placeholder="Search projects..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+                  className="pl-10 h-11 rounded-xl bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
                 />
               </div>
             </div>

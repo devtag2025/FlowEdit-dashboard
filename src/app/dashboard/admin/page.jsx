@@ -255,9 +255,9 @@ const AdminDashboard = () => {
               </h2>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
-              <div className="relative w-full overflow-hidden">
-                <div className="w-full">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+              <div className="min-w-0">
+                <div className="w-full min-w-0">
                   <div className="lg:hidden w-full">
                     <Select value={activeFilter} onValueChange={setActiveFilter}>
                       <SelectTrigger className="h-11 w-full rounded-xl border border-accent/20 bg-white! text-sm font-semibold text-accent transition-all hover:border-primary/50 hover:bg-accent/5 focus:ring-2 focus:ring-primary/40 focus:border-primary">
@@ -277,7 +277,7 @@ const AdminDashboard = () => {
                     </Select>
                   </div>
 
-                  <div className="hidden lg:flex gap-2 flex-wrap">
+                  <div className="hidden lg:flex flex-wrap gap-2">
                     {filters.map((filter) => (
                       <FilterButton
                         key={filter}
@@ -291,14 +291,14 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="relative w-full lg:w-80 bg-white rounded-2xl">
+              <div className="relative w-full bg-white rounded-xl">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-accent" />
                 <Input
                   type="text"
                   placeholder="Search projects..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
+                  className="pl-10 h-11 rounded-xl bg-white border-accent/10 text-accent placeholder:text-accent focus:border-primary focus:ring-primary"
                 />
               </div>
             </div>
